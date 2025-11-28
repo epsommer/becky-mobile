@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Becky CRM",
+    "slug": "becky-crm",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "beckycrm",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "bundleIdentifier": "com.epsommer.beckycrm",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.epsommer.beckycrm",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "90f7fff2-5572-4b2f-ae32-edf22e4dd01b"
+      }
+    },
+    "owner": "epsommer"
+  }
+}
