@@ -4,6 +4,9 @@ import React from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import ClientNotesPanel from "./ClientNotesPanel";
 import TestimonialsPanel from "./TestimonialsPanel";
+import ConversationTimelinePanel from "./ConversationTimelinePanel";
+import CalendarIntegrationPanel from "./CalendarIntegrationPanel";
+import ReceiptsPanel from "./ReceiptsPanel";
 
 const quickActions = [
   { label: "Add note", meta: "Clients" },
@@ -117,6 +120,7 @@ export default function ClientPage({ onOpenPreferences }: ClientPageProps) {
             <Text style={styles.timelineText}>{event.text}</Text>
           </View>
         ))}
+        <ConversationTimelinePanel />
       </View>
 
       <View style={styles.card}>
@@ -127,6 +131,7 @@ export default function ClientPage({ onOpenPreferences }: ClientPageProps) {
         <TouchableOpacity style={styles.primaryButton}>
           <Text style={styles.primaryText}>Send receipt</Text>
         </TouchableOpacity>
+        <ReceiptsPanel />
       </View>
 
       <View style={styles.card}>
@@ -134,6 +139,7 @@ export default function ClientPage({ onOpenPreferences }: ClientPageProps) {
         <Text style={styles.sectionBody}>
           Optional connections to Google or Notion calendars keep appointments flowing both ways. Sync once, forget friction.
         </Text>
+        <CalendarIntegrationPanel />
       </View>
 
       <View style={styles.card}>
