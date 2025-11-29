@@ -17,19 +17,36 @@ import PreferencesPanel from './components/PreferencesPanel';
 import SidebarPanel from './components/SidebarPanel';
 import NotificationsModalPanel from './components/NotificationsModalPanel';
 import UserAvatarDropdownPanel from "./components/UserAvatarDropdownPanel";
+import DashboardScreen from "./components/screens/DashboardScreen";
+import ClientsScreen from "./components/screens/ClientsScreen";
+import ConversationsScreen from "./components/screens/ConversationsScreen";
+import TestimonialsScreen from "./components/screens/TestimonialsScreen";
+import BillingScreen from "./components/screens/BillingScreen";
+import TimeManagerScreen from "./components/screens/TimeManagerScreen";
+import GoalsScreen from "./components/screens/GoalsScreen";
+import ServiceLinesScreen from "./components/screens/ServiceLinesScreen";
 import { useFonts, SpaceGrotesk_600SemiBold } from '@expo-google-fonts/space-grotesk';
 
-const navigationLinks = [
-  'Dashboard',
-  'Clients',
-  'Conversations',
-  'Testimonials',
-  'Billing',
-  'Time Manager',
-  'Goals',
-  'Service Lines',
-];
+type PageKey =
+  | "Dashboard"
+  | "Clients"
+  | "Conversations"
+  | "Testimonials"
+  | "Billing"
+  | "Time Manager"
+  | "Goals"
+  | "Service Lines";
 
+const navigationLinks: PageKey[] = [
+  "Dashboard",
+  "Clients",
+  "Conversations",
+  "Testimonials",
+  "Billing",
+  "Time Manager",
+  "Goals",
+  "Service Lines",
+];
 const notifications = [
   { id: '1', title: 'New message from Marina Studio', time: '2m ago' },
   { id: '2', title: 'Receipt delivered to Woodgreen', time: '1h ago' },
@@ -52,6 +69,7 @@ export default function App() {
   const [settingsVisible, setSettingsVisible] = React.useState(false);
   const [preferencesVisible, setPreferencesVisible] = React.useState(false);
   const [accountDropdownVisible, setAccountDropdownVisible] = React.useState(false);
+  const [currentPage, setCurrentPage] = React.useState<PageKey>('Dashboard');
 
   if (!fontsLoaded) {
     return null;
@@ -64,6 +82,35 @@ export default function App() {
     setSettingsVisible(false);
     setPreferencesVisible(false);
     setAccountDropdownVisible(false);
+    setMenuVisible(false);
+  };
+
+  const handlePageSelect = (page: PageKey) => {
+    setCurrentPage(page);
+    closeAll();
+  };
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case "Dashboard":
+        return <DashboardScreen onOpenPreferences={() => setPreferencesVisible(true)} />;
+      case "Clients":
+        return <ClientsScreen />;
+      case "Conversations":
+        return <ConversationsScreen />;
+      case "Testimonials":
+        return <TestimonialsScreen />;
+      case "Billing":
+        return <BillingScreen />;
+      case "Time Manager":
+        return <TimeManagerScreen />;
+      case "Goals":
+        return <GoalsScreen />;
+      case "Service Lines":
+        return <ServiceLinesScreen />;
+      default:
+        return <DashboardScreen onOpenPreferences={() => setPreferencesVisible(true)} />;
+    }
   };
 
   return (
@@ -125,12 +172,12 @@ export default function App() {
         )}
       </View>
 
-      <ClientPage onOpenPreferences={() => setPreferencesVisible(true)} />
+      {renderPage()}
 
       <Modal transparent visible={menuVisible} animationType="fade">
         <Pressable style={styles.modalBackdrop} onPress={closeAll} />
         <View style={styles.modalContent}>
-          <SidebarPanel />
+          <SidebarPanel onSelect={(tab) => handlePageSelect(tab as PageKey)} />
         </View>
       </Modal>
 

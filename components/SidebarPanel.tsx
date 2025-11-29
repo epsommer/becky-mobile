@@ -20,12 +20,20 @@ const serviceLines = [
   "Tommy Studio",
 ];
 
-export default function SidebarPanel() {
+interface SidebarPanelProps {
+  onSelect?: (tab: string) => void;
+}
+
+export default function SidebarPanel({ onSelect }: SidebarPanelProps) {
   return (
     <View style={styles.panel}>
       <Text style={styles.heading}>CRM Navigation</Text>
       {navigation.map((item) => (
-        <TouchableOpacity key={item} style={styles.item}>
+        <TouchableOpacity
+          key={item}
+          style={styles.item}
+          onPress={() => onSelect?.(item)}
+        >
           <Text style={styles.label}>{item}</Text>
         </TouchableOpacity>
       ))}
