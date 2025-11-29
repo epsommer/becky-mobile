@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 import ClientPage from './components/ClientPage';
+import AccountSettingsPanel from './components/AccountSettingsPanel';
+import ActivityLogPanel from './components/ActivityLogPanel';
 import { useFonts, SpaceGrotesk_600SemiBold } from '@expo-google-fonts/space-grotesk';
 
 const navigationLinks = [
@@ -151,31 +153,20 @@ export default function App() {
 
       <Modal transparent visible={activityVisible} animationType="slide">
         <Pressable style={styles.modalBackdrop} onPress={closeAll} />
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Activity Log</Text>
-          {activityLog.map((entry) => (
-            <Text key={entry} style={styles.modalItem}>
-              {entry}
-            </Text>
-          ))}
+        <View style={styles.activityModal}>
+          <ActivityLogPanel />
         </View>
       </Modal>
 
       <Modal transparent visible={settingsVisible} animationType="slide">
         <Pressable style={styles.modalBackdrop} onPress={closeAll} />
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Account settings</Text>
-          <Text style={styles.modalItem}>Evangelo Sommer</Text>
-          <Text style={styles.modalItem}>support@evangelosommer.com</Text>
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => {
-              setSettingsVisible(false)
-              setPreferencesVisible(true)
+        <View style={styles.accountModal}>
+          <AccountSettingsPanel
+            onClose={() => {
+              setSettingsVisible(false);
+              setPreferencesVisible(false);
             }}
-          >
-            <Text style={styles.modalButtonText}>Preferences</Text>
-          </TouchableOpacity>
+          />
         </View>
       </Modal>
 
@@ -321,5 +312,21 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: '#0f1622',
     fontWeight: '600',
+  },
+  accountModal: {
+    marginHorizontal: 18,
+    marginTop: 110,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#1f2335',
+  },
+  activityModal: {
+    marginHorizontal: 18,
+    marginTop: 110,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#1f2335',
   },
 });

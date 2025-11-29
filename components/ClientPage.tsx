@@ -1,7 +1,8 @@
-"use client";
+ "use client";
 
 import React from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import ClientNotesPanel from "./ClientNotesPanel";
 
 const quickActions = [
   { label: "Add note", meta: "Clients" },
@@ -97,6 +98,7 @@ export default function ClientPage({ onOpenPreferences }: ClientPageProps) {
             </View>
           </View>
         ))}
+        <ClientNotesPanel />
       </View>
 
       <View style={styles.card}>
