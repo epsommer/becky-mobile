@@ -59,21 +59,6 @@ export default function App() {
     setPreferencesVisible(false);
     setAccountDropdownVisible(false);
   };
-  const [menuVisible, setMenuVisible] = React.useState(false);
-  const [notificationsVisible, setNotificationsVisible] = React.useState(false);
-  const [activityVisible, setActivityVisible] = React.useState(false);
-  const [settingsVisible, setSettingsVisible] = React.useState(false);
-  const [preferencesVisible, setPreferencesVisible] = React.useState(false);
-  const [accountDropdownVisible, setAccountDropdownVisible] = React.useState(false);
-
-  const closeAll = () => {
-    setMenuVisible(false);
-    setNotificationsVisible(false);
-    setActivityVisible(false);
-    setSettingsVisible(false);
-    setPreferencesVisible(false);
-    setAccountDropdownVisible(false);
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
