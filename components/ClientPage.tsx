@@ -3,6 +3,7 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import ClientNotesPanel from "./ClientNotesPanel";
+import TestimonialsPanel from "./TestimonialsPanel";
 
 const quickActions = [
   { label: "Add note", meta: "Clients" },
@@ -99,6 +100,7 @@ export default function ClientPage({ onOpenPreferences }: ClientPageProps) {
           </View>
         ))}
         <ClientNotesPanel />
+        <TestimonialsPanel />
       </View>
 
       <View style={styles.card}>
