@@ -1,3 +1,4 @@
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaView,
@@ -6,7 +7,10 @@ import {
   Text,
   View,
   TouchableOpacity,
+  Modal,
+  Pressable,
 } from 'react-native';
+import { MaterialIcons, Feather } from '@expo/vector-icons';
 
 const clients = [
   {
@@ -46,20 +50,68 @@ const navigationLinks = [
   'Service Lines',
 ];
 
+const notifications = [
+  { id: '1', title: 'New message from Marina Studio', time: '2m ago' },
+  { id: '2', title: 'Receipt delivered to Woodgreen', time: '1h ago' },
+  { id: '3', title: 'Testimonial requested', time: 'Yesterday' },
+];
+
+const activityLog = [
+  'Signed in on iPhone 15 Pro (Toronto)',
+  'Connected Google Calendar sync',
+  'Set preferences: compact mode enabled',
+];
+
 export default function App() {
+  const [menuVisible, setMenuVisible] = React.useState(false);
+  const [notificationsVisible, setNotificationsVisible] = React.useState(false);
+  const [activityVisible, setActivityVisible] = React.useState(false);
+  const [settingsVisible, setSettingsVisible] = React.useState(false);
+  const [preferencesVisible, setPreferencesVisible] = React.useState(false);
+
+  const closeAll = () => {
+    setMenuVisible(false);
+    setNotificationsVisible(false);
+    setActivityVisible(false);
+    setSettingsVisible(false);
+    setPreferencesVisible(false);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setMenuVisible(true)}
+        >
+          <MaterialIcons name="menu" size={22} color="#bac6ff" />
+        </TouchableOpacity>
         <View>
           <Text style={styles.title}>B.E.C.K.Y. CRM</Text>
           <Text style={styles.subtitle}>
-            Business Engagement & Client Knowledge Yield
+            Mobile mirror of the web dashboard with neomorphic polish
           </Text>
         </View>
-        <View style={styles.headerBadge}>
-          <Text style={styles.badgeLabel}>closed test</Text>
-          <Text style={styles.badgeValue}>v1.0.0</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setNotificationsVisible(true)}
+          >
+            <Feather name="bell" size={20} color="#c4cff6" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setActivityVisible(true)}
+          >
+            <MaterialIcons name="timeline" size={20} color="#c4cff6" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.avatar}
+            onPress={() => setSettingsVisible(true)}
+          >
+            <Text style={styles.avatarText}>ES</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -156,6 +208,70 @@ export default function App() {
           </Text>
         </View>
       </ScrollView>
+
+      <Modal transparent visible={menuVisible} animationType="fade">
+        <Pressable style={styles.modalBackdrop} onPress={closeAll} />
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Navigation</Text>
+          {navigationLinks.map((link) => (
+            <Text key={link} style={styles.modalItem}>
+              {link}
+            </Text>
+          ))}
+        </View>
+      </Modal>
+
+      <Modal transparent visible={notificationsVisible} animationType="slide">
+        <Pressable style={styles.modalBackdrop} onPress={closeAll} />
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Notifications</Text>
+          {notifications.map((note) => (
+            <Text key={note.id} style={styles.modalItem}>
+              {note.title} · {note.time}
+            </Text>
+          ))}
+        </View>
+      </Modal>
+
+      <Modal transparent visible={activityVisible} animationType="slide">
+        <Pressable style={styles.modalBackdrop} onPress={closeAll} />
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Activity Log</Text>
+          {activityLog.map((entry) => (
+            <Text key={entry} style={styles.modalItem}>
+              {entry}
+            </Text>
+          ))}
+        </View>
+      </Modal>
+
+      <Modal transparent visible={settingsVisible} animationType="slide">
+        <Pressable style={styles.modalBackdrop} onPress={closeAll} />
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Account settings</Text>
+          <Text style={styles.modalItem}>Evangelo Sommer</Text>
+          <Text style={styles.modalItem}>support@evangelosommer.com</Text>
+          <TouchableOpacity
+            style={styles.modalButton}
+            onPress={() => {
+              setSettingsVisible(false)
+              setPreferencesVisible(true)
+            }}
+          >
+            <Text style={styles.modalButtonText}>Preferences</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={preferencesVisible} animationType="slide">
+        <Pressable style={styles.modalBackdrop} onPress={closeAll} />
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Preferences</Text>
+          <Text style={styles.modalItem}>Theme: Neomorphic / Tactical</Text>
+          <Text style={styles.modalItem}>Grain: Medium</Text>
+          <Text style={styles.modalItem}>Window: Neomorphic</Text>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -325,5 +441,87 @@ const styles = StyleSheet.create({
   primaryText: {
     color: '#0c1221',
     fontWeight: '700',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  menuButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: '#111720',
+    borderWidth: 1,
+    borderColor: '#1f2435',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#111720',
+    borderWidth: 1,
+    borderColor: '#1b1f30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1b1f30',
+    backgroundColor: '#2a2f44',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
+  },
+  avatarText: {
+    color: '#f4f6ff',
+    fontWeight: '700',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalContent: {
+    marginHorizontal: 28,
+    marginTop: 120,
+    backgroundColor: '#0d111f',
+    borderRadius: 28,
+    padding: 20,
+    borderColor: '#1f2435',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 25,
+    elevation: 10,
+  },
+  modalTitle: {
+    color: '#f8fbff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  modalItem: {
+    color: '#c7d1ef',
+    fontSize: 14,
+    paddingVertical: 8,
+  },
+  modalButton: {
+    marginTop: 16,
+    backgroundColor: '#5c93ff',
+    borderRadius: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#0f1622',
+    fontWeight: '600',
   },
 });
