@@ -13,6 +13,10 @@ import { MaterialIcons, Feather } from '@expo/vector-icons';
 import ClientPage from './components/ClientPage';
 import AccountSettingsPanel from './components/AccountSettingsPanel';
 import ActivityLogPanel from './components/ActivityLogPanel';
+import PreferencesPanel from './components/PreferencesPanel';
+import SidebarPanel from './components/SidebarPanel';
+import NotificationsModalPanel from './components/NotificationsModalPanel';
+import UserAvatarDropdownPanel from "./components/UserAvatarDropdownPanel";
 import { useFonts, SpaceGrotesk_600SemiBold } from '@expo-google-fonts/space-grotesk';
 
 const navigationLinks = [
@@ -105,23 +109,19 @@ export default function App() {
           </TouchableOpacity>
         </View>
         {accountDropdownVisible && (
-          <View style={styles.accountDropdown}>
-            <TouchableOpacity style={styles.accountDropdownItem}>
-              <Text style={styles.accountDropdownText}>Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.accountDropdownItem}
-              onPress={() => {
-                setAccountDropdownVisible(false);
-                setPreferencesVisible(true);
-              }}
-            >
-              <Text style={styles.accountDropdownText}>Preferences</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.accountDropdownItem}>
-              <Text style={styles.accountDropdownText}>Sign out</Text>
-            </TouchableOpacity>
-          </View>
+          <UserAvatarDropdownPanel
+            onAccountSettings={() => {
+              setAccountDropdownVisible(false);
+              setSettingsVisible(true);
+            }}
+            onPreferences={() => {
+              setAccountDropdownVisible(false);
+              setPreferencesVisible(true);
+            }}
+            onSignOut={() => {
+              setAccountDropdownVisible(false);
+            }}
+          />
         )}
       </View>
 
@@ -130,24 +130,14 @@ export default function App() {
       <Modal transparent visible={menuVisible} animationType="fade">
         <Pressable style={styles.modalBackdrop} onPress={closeAll} />
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Navigation</Text>
-          {navigationLinks.map((link) => (
-            <Text key={link} style={styles.modalItem}>
-              {link}
-            </Text>
-          ))}
+          <SidebarPanel />
         </View>
       </Modal>
 
       <Modal transparent visible={notificationsVisible} animationType="slide">
         <Pressable style={styles.modalBackdrop} onPress={closeAll} />
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Notifications</Text>
-          {notifications.map((note) => (
-            <Text key={note.id} style={styles.modalItem}>
-              {note.title} · {note.time}
-            </Text>
-          ))}
+        <View style={styles.notificationsModal}>
+          <NotificationsModalPanel />
         </View>
       </Modal>
 
@@ -172,11 +162,8 @@ export default function App() {
 
       <Modal transparent visible={preferencesVisible} animationType="slide">
         <Pressable style={styles.modalBackdrop} onPress={closeAll} />
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Preferences</Text>
-          <Text style={styles.modalItem}>Theme: Neomorphic / Tactical</Text>
-          <Text style={styles.modalItem}>Grain: Medium</Text>
-          <Text style={styles.modalItem}>Window: Neomorphic</Text>
+        <View style={styles.preferencesModal}>
+          <PreferencesPanel onClose={closeAll} />
         </View>
       </Modal>
     </SafeAreaView>
@@ -250,29 +237,6 @@ const styles = StyleSheet.create({
     color: '#f4f6ff',
     fontWeight: '700',
   },
-  accountDropdown: {
-    position: 'absolute',
-    right: 24,
-    top: 72,
-    backgroundColor: '#101427',
-    borderRadius: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#1f2335',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  accountDropdownItem: {
-    paddingVertical: 6,
-  },
-  accountDropdownText: {
-    color: '#c5cff9',
-    fontSize: 13,
-  },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -328,5 +292,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#1f2335',
+  },
+  preferencesModal: {
+    marginHorizontal: 18,
+    marginTop: 112,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  notificationsModal: {
+    marginHorizontal: 18,
+    marginTop: 110,
+    borderRadius: 24,
+    overflow: 'hidden',
   },
 });

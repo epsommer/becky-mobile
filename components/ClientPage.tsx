@@ -7,6 +7,18 @@ import TestimonialsPanel from "./TestimonialsPanel";
 import ConversationTimelinePanel from "./ConversationTimelinePanel";
 import CalendarIntegrationPanel from "./CalendarIntegrationPanel";
 import ReceiptsPanel from "./ReceiptsPanel";
+import BillingDocumentsPanel from "./BillingDocumentsPanel";
+import ConversationSummaryPanel from "./ConversationSummaryPanel";
+import ClientConversationsPanel from "./ClientConversationsPanel";
+import ServiceLinesPanel from "./ServiceLinesPanel";
+import ConversationDetailPanel from "./ConversationDetailPanel";
+import ClientSelectorPanel from "./ClientSelectorPanel";
+import QuickMessagePanel from "./QuickMessagePanel";
+import CRMIntegrationPanel from "./CRMIntegrationPanel";
+import ReceiptDetailsPanel from "./ReceiptDetailsPanel";
+import CalendarIntegrationManagerPanel from "./CalendarIntegrationManagerPanel";
+import MessageImporterPanel from "./MessageImporterPanel";
+import GoalsWidget from "./GoalsWidget";
 
 const quickActions = [
   { label: "Add note", meta: "Clients" },
@@ -58,6 +70,7 @@ export default function ClientPage({ onOpenPreferences }: ClientPageProps) {
       contentContainerStyle={styles.scrollArea}
       showsVerticalScrollIndicator={false}
     >
+      <ClientSelectorPanel />
       <View style={styles.kpiRow}>
         {kpis.map((kpi) => (
           <View style={styles.kpiCard} key={kpi.label}>
@@ -78,6 +91,7 @@ export default function ClientPage({ onOpenPreferences }: ClientPageProps) {
             </TouchableOpacity>
           ))}
         </View>
+        <QuickMessagePanel />
       </View>
 
       <View style={styles.card}>
@@ -121,6 +135,9 @@ export default function ClientPage({ onOpenPreferences }: ClientPageProps) {
           </View>
         ))}
         <ConversationTimelinePanel />
+        <ConversationSummaryPanel />
+        <ClientConversationsPanel />
+        <ConversationDetailPanel />
       </View>
 
       <View style={styles.card}>
@@ -140,6 +157,36 @@ export default function ClientPage({ onOpenPreferences }: ClientPageProps) {
           Optional connections to Google or Notion calendars keep appointments flowing both ways. Sync once, forget friction.
         </Text>
         <CalendarIntegrationPanel />
+        <CalendarIntegrationManagerPanel />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Billing</Text>
+        <Text style={styles.sectionBody}>
+          Manage invoices, quotes, and receipts from the same neomorphic inbox.
+        </Text>
+        <ReceiptsPanel />
+        <ReceiptDetailsPanel />
+        <BillingDocumentsPanel />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Service lines</Text>
+        <Text style={styles.sectionBody}>
+          Align segments, goals, and tactical plans from the sidebar’s service lines.
+        </Text>
+        <ServiceLinesPanel />
+      </View>
+
+      <GoalsWidget />
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>CRM integration</Text>
+        <Text style={styles.sectionBody}>
+          Run AI-powered imports and CRM integration flows directly from the dashboard.
+        </Text>
+        <CRMIntegrationPanel />
+        <MessageImporterPanel />
       </View>
 
       <View style={styles.card}>
