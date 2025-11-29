@@ -10,6 +10,12 @@ const quickActions = [
   { label: "Request testimonial", meta: "Email" },
 ];
 
+const kpis = [
+  { label: "Active clients", value: "24", trend: "+3 this week" },
+  { label: "Open invoices", value: "$14.2K", trend: "Due in 5 days" },
+  { label: "Conversations", value: "76", trend: "New 8 today" },
+  { label: "Testimonials", value: "9", trend: "2 pending" },
+];
 const clients = [
   {
     name: "Woodgreen Landscaping",
@@ -38,21 +44,22 @@ const timeline = [
 ];
 
 interface ClientPageProps {
-  navigationLinks: string[];
   onOpenPreferences: () => void;
 }
 
-export default function ClientPage({ navigationLinks, onOpenPreferences }: ClientPageProps) {
+export default function ClientPage({ onOpenPreferences }: ClientPageProps) {
   return (
     <ScrollView
       contentContainerStyle={styles.scrollArea}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.navRow}>
-        {navigationLinks.map((link) => (
-          <TouchableOpacity key={link} style={styles.navChip}>
-            <Text style={styles.navChipText}>{link}</Text>
-          </TouchableOpacity>
+      <View style={styles.kpiRow}>
+        {kpis.map((kpi) => (
+          <View style={styles.kpiCard} key={kpi.label}>
+            <Text style={styles.kpiLabel}>{kpi.label}</Text>
+            <Text style={styles.kpiValue}>{kpi.value}</Text>
+            <Text style={styles.kpiTrend}>{kpi.trend}</Text>
+          </View>
         ))}
       </View>
 
@@ -276,5 +283,36 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: '#0f1622',
     fontWeight: '600',
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  kpiCard: {
+    backgroundColor: '#1d2234',
+    borderRadius: 16,
+    padding: 14,
+    width: '48%',
+    borderWidth: 1,
+    borderColor: '#232a42',
+    marginBottom: 12,
+  },
+  kpiLabel: {
+    color: '#9cb3ff',
+    textTransform: 'uppercase',
+    fontSize: 10,
+    marginBottom: 6,
+  },
+  kpiValue: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  kpiTrend: {
+    color: '#8fd7ff',
+    fontSize: 12,
+    marginTop: 4,
   },
 });

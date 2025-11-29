@@ -123,10 +123,7 @@ export default function App() {
         )}
       </View>
 
-      <ClientPage
-        navigationLinks={navigationLinks}
-        onOpenPreferences={() => setPreferencesVisible(true)}
-      />
+      <ClientPage onOpenPreferences={() => setPreferencesVisible(true)} />
 
       <Modal transparent visible={menuVisible} animationType="fade">
         <Pressable style={styles.modalBackdrop} onPress={closeAll} />
