@@ -30,9 +30,20 @@ const clients = [
 ];
 
 const timeline = [
-  { text: 'Appointment synced with Google', label: 'Calendar' },
+  { text: 'Appointment synced with Google Calendar', label: 'Calendar' },
   { text: 'Receipt emailed for Marcia event', label: 'Receipt' },
-  { text: 'Testimonial request sent', label: 'Email' },
+  { text: 'Testimonial requested via email', label: 'Email' },
+];
+
+const navigationLinks = [
+  'Dashboard',
+  'Clients',
+  'Conversations',
+  'Testimonials',
+  'Billing',
+  'Time Manager',
+  'Goals',
+  'Service Lines',
 ];
 
 export default function App() {
@@ -40,35 +51,44 @@ export default function App() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View style={styles.header}>
-        <Text style={styles.title}>Becky CRM</Text>
-        <Text style={styles.subtitle}>
-          Mobile client HQ · Receipts, testimonials, & timeline in one tap
-        </Text>
+        <View>
+          <Text style={styles.title}>B.E.C.K.Y. CRM</Text>
+          <Text style={styles.subtitle}>
+            Business Engagement & Client Knowledge Yield
+          </Text>
+        </View>
+        <View style={styles.headerBadge}>
+          <Text style={styles.badgeLabel}>closed test</Text>
+          <Text style={styles.badgeValue}>v1.0.0</Text>
+        </View>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollArea}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.navRow}>
+          {navigationLinks.map((link) => (
+            <TouchableOpacity key={link} style={styles.navChip}>
+              <Text style={styles.navChipText}>{link}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Quick actions</Text>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionChip}>
-              <Text style={styles.actionLabel}>Add note</Text>
-              <Text style={styles.actionValue}>Clients</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionChip}>
-              <Text style={styles.actionLabel}>Create task</Text>
-              <Text style={styles.actionValue}>Follow-up</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionChip}>
-              <Text style={styles.actionLabel}>Send receipt</Text>
-              <Text style={styles.actionValue}>Email</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionChip}>
-              <Text style={styles.actionLabel}>Request testimonial</Text>
-              <Text style={styles.actionValue}>Email</Text>
-            </TouchableOpacity>
+            {[
+              { label: 'Add note', meta: 'Clients' },
+              { label: 'Create task', meta: 'Follow-up' },
+              { label: 'Send receipt', meta: 'Email' },
+              { label: 'Request testimonial', meta: 'Email' },
+            ].map((action) => (
+              <TouchableOpacity key={action.label} style={styles.actionChip}>
+                <Text style={styles.actionLabel}>{action.label}</Text>
+                <Text style={styles.actionValue}>{action.meta}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -86,7 +106,9 @@ export default function App() {
                   { borderColor: client.statusColor },
                 ]}
               >
-                <Text style={[styles.statusText, { color: client.statusColor }]}>
+                <Text
+                  style={[styles.statusText, { color: client.statusColor }]}
+                >
                   {client.status}
                 </Text>
               </View>
@@ -111,9 +133,9 @@ export default function App() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Emails & receipts</Text>
+          <Text style={styles.sectionTitle}>Email tasks</Text>
           <Text style={styles.sectionBody}>
-            Send receipts, check delivery, and invite testimonials without leaving Becky CRM.
+            Send receipts and testimonial requests, review delivery status, and copy details straight into the client timeline.
           </Text>
           <TouchableOpacity style={styles.primaryButton}>
             <Text style={styles.primaryText}>Send receipt</Text>
@@ -123,7 +145,14 @@ export default function App() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Calendar sync</Text>
           <Text style={styles.sectionBody}>
-            Optional links to Google or Notion calendars keep every appointment aligned. Sync once and let Becky handle the rest.
+            Optional connections to Google or Notion calendars keep appointments flowing both ways. Sync once, forget friction.
+          </Text>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Notifications & Modals</Text>
+          <Text style={styles.sectionBody}>
+            Notifications, activity log, account settings, and preferences reuse the same tactile, neomorphic modals as the web experience.
           </Text>
         </View>
       </ScrollView>
@@ -134,27 +163,68 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#04080f',
+    backgroundColor: '#020412',
   },
   header: {
     paddingHorizontal: 24,
     paddingTop: 32,
-    paddingBottom: 16,
+    paddingBottom: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   title: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '700',
-    color: '#fdfdfd',
+    color: '#f5f6ff',
   },
   subtitle: {
     marginTop: 4,
-    fontSize: 14,
-    color: '#bac6ff',
-    maxWidth: '85%',
+    fontSize: 12,
+    color: '#9cb3ff',
+    maxWidth: '80%',
+  },
+  headerBadge: {
+    backgroundColor: '#1f2436',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  badgeLabel: {
+    color: '#9cb3ff',
+    fontSize: 10,
+    textTransform: 'uppercase',
+  },
+  badgeValue: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   scrollArea: {
     paddingHorizontal: 16,
     paddingBottom: 32,
+  },
+  navRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  navChip: {
+    backgroundColor: '#111720',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    width: '48%',
+    borderWidth: 1,
+    borderColor: '#1f2335',
+  },
+  navChipText: {
+    color: '#c5cff9',
+    fontSize: 11,
+    textTransform: 'uppercase',
   },
   card: {
     backgroundColor: '#111720',
@@ -162,13 +232,15 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 18,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
     shadowRadius: 20,
     elevation: 6,
+    borderWidth: 1,
+    borderColor: '#1d2333',
   },
   sectionTitle: {
-    color: '#f5f7ff',
+    color: '#f9fbff',
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 12,
@@ -180,18 +252,20 @@ const styles = StyleSheet.create({
   },
   actionChip: {
     width: '48%',
-    backgroundColor: '#1b2230',
+    backgroundColor: '#1b2132',
     borderRadius: 16,
     padding: 12,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#1f2435',
   },
   actionLabel: {
-    color: '#d8e2ff',
+    color: '#d2ddff',
     fontWeight: '600',
   },
   actionValue: {
     marginTop: 6,
-    color: '#93a0c4',
+    color: '#90a0cb',
     fontSize: 12,
   },
   clientRow: {
@@ -240,6 +314,7 @@ const styles = StyleSheet.create({
     color: '#b4bfdd',
     fontSize: 14,
     marginBottom: 14,
+    lineHeight: 20,
   },
   primaryButton: {
     backgroundColor: '#6fb1ff',
