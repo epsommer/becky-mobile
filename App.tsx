@@ -8,23 +8,31 @@ import {
   TouchableOpacity,
 } from 'react-native';
 
-const quickActions = [
-  { id: 'notes', label: 'Add client note' },
-  { id: 'task', label: 'Schedule follow-up' },
-  { id: 'receipt', label: 'Send receipt' },
-  { id: 'testimonial', label: 'Request testimonial' },
-];
-
 const clients = [
-  { name: 'Woodgreen Landscaping', next: 'Call about invoice', status: 'On track' },
-  { name: 'Marina Studio', next: 'Confirm testimonial', status: 'Reminder' },
-  { name: 'Sammy Creative', next: 'Share gallery updates', status: 'Sent' },
+  {
+    name: 'Woodgreen Landscaping',
+    note: 'Call about invoice',
+    status: 'On track',
+    statusColor: '#5ec7ff',
+  },
+  {
+    name: 'Marina Studio',
+    note: 'Confirm testimonial',
+    status: 'Reminder',
+    statusColor: '#f4d35e',
+  },
+  {
+    name: 'Sammy Creative',
+    note: 'Share gallery updates',
+    status: 'Sent',
+    statusColor: '#91e78f',
+  },
 ];
 
 const timeline = [
-  { id: '1', text: 'Appointment added to calendar', time: '08:30' },
-  { id: '2', text: 'Receipt sent for Marcia event', time: 'Yesterday' },
-  { id: '3', text: 'Testimonial requested via email', time: '2d ago' },
+  { text: 'Appointment synced with Google', label: 'Calendar' },
+  { text: 'Receipt emailed for Marcia event', label: 'Receipt' },
+  { text: 'Testimonial request sent', label: 'Email' },
 ];
 
 export default function App() {
@@ -33,63 +41,89 @@ export default function App() {
       <StatusBar style="light" />
       <View style={styles.header}>
         <Text style={styles.title}>Becky CRM</Text>
-        <Text style={styles.subTitle}>Client knowledge in every tap</Text>
+        <Text style={styles.subtitle}>
+          Mobile client HQ · Receipts, testimonials, & timeline in one tap
+        </Text>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollArea}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.sectionCard}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Quick actions</Text>
-          <View style={styles.actionsRow}>
-            {quickActions.map((action) => (
-              <TouchableOpacity key={action.id} style={styles.actionButton}>
-                <Text style={styles.actionText}>{action.label}</Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.actionsGrid}>
+            <TouchableOpacity style={styles.actionChip}>
+              <Text style={styles.actionLabel}>Add note</Text>
+              <Text style={styles.actionValue}>Clients</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionChip}>
+              <Text style={styles.actionLabel}>Create task</Text>
+              <Text style={styles.actionValue}>Follow-up</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionChip}>
+              <Text style={styles.actionLabel}>Send receipt</Text>
+              <Text style={styles.actionValue}>Email</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionChip}>
+              <Text style={styles.actionLabel}>Request testimonial</Text>
+              <Text style={styles.actionValue}>Email</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.sectionCard}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Clients</Text>
           {clients.map((client) => (
-            <View key={client.name} style={styles.clientRow}>
+            <View style={styles.clientRow} key={client.name}>
               <View>
                 <Text style={styles.clientName}>{client.name}</Text>
-                <Text style={styles.clientNext}>{client.next}</Text>
+                <Text style={styles.clientNote}>{client.note}</Text>
               </View>
-              <View style={styles.clientStatus}>
-                <Text style={styles.statusText}>{client.status}</Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { borderColor: client.statusColor },
+                ]}
+              >
+                <Text style={[styles.statusText, { color: client.statusColor }]}>
+                  {client.status}
+                </Text>
               </View>
             </View>
           ))}
         </View>
 
-        <View style={styles.sectionCard}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Timeline</Text>
-          {timeline.map((event) => (
-            <View key={event.id} style={styles.timelineRow}>
-              <Text style={styles.timelineTime}>{event.time}</Text>
+          {timeline.map((event, index) => (
+            <View
+              key={event.text}
+              style={[
+                styles.timelineRow,
+                index !== timeline.length - 1 && styles.timelineDivider,
+              ]}
+            >
+              <Text style={styles.timelineLabel}>{event.label}</Text>
               <Text style={styles.timelineText}>{event.text}</Text>
             </View>
           ))}
         </View>
 
-        <View style={styles.sectionCard}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Emails & receipts</Text>
           <Text style={styles.sectionBody}>
-            Send receipts and testimonial requests, and review delivery status without leaving the app.
+            Send receipts, check delivery, and invite testimonials without leaving Becky CRM.
           </Text>
           <TouchableOpacity style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Send receipt</Text>
+            <Text style={styles.primaryText}>Send receipt</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.sectionCard}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Calendar sync</Text>
           <Text style={styles.sectionBody}>
-            Optional connections with Google or Notion calendars keep appointments aligned across your tools.
+            Optional links to Google or Notion calendars keep every appointment aligned. Sync once and let Becky handle the rest.
           </Text>
         </View>
       </ScrollView>
@@ -100,116 +134,121 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#040811',
+    backgroundColor: '#04080f',
   },
   header: {
-    paddingTop: 32,
     paddingHorizontal: 24,
+    paddingTop: 32,
     paddingBottom: 16,
   },
   title: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '700',
-    color: '#fefefe',
+    color: '#fdfdfd',
   },
-  subTitle: {
+  subtitle: {
     marginTop: 4,
-    fontSize: 16,
-    color: '#aec3ff',
+    fontSize: 14,
+    color: '#bac6ff',
+    maxWidth: '85%',
   },
   scrollArea: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 32,
   },
-  sectionCard: {
+  card: {
     backgroundColor: '#111720',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 20,
-    marginBottom: 16,
+    marginBottom: 18,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.25,
     shadowRadius: 20,
-    elevation: 5,
+    elevation: 6,
   },
   sectionTitle: {
+    color: '#f5f7ff',
     fontSize: 18,
     fontWeight: '600',
-    color: '#f6f7fb',
     marginBottom: 12,
   },
-  actionsRow: {
+  actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
   },
-  actionButton: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: '#1f2835',
-    borderRadius: 12,
+  actionChip: {
+    width: '48%',
+    backgroundColor: '#1b2230',
+    borderRadius: 16,
     padding: 12,
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  actionText: {
-    color: '#d0d7f2',
-    fontSize: 13,
-    fontWeight: '500',
+  actionLabel: {
+    color: '#d8e2ff',
+    fontWeight: '600',
+  },
+  actionValue: {
+    marginTop: 6,
+    color: '#93a0c4',
+    fontSize: 12,
   },
   clientRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  clientName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fefefe',
-  },
-  clientNext: {
-    fontSize: 13,
-    color: '#9aa5c4',
-  },
-  clientStatus: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#5c93ff',
-  },
-  statusText: {
-    color: '#5c93ff',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  timelineRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  timelineTime: {
-    width: 60,
-    fontSize: 12,
-    color: '#7ba1ff',
-  },
-  timelineText: {
-    fontSize: 14,
-    color: '#f1f4ff',
-  },
-  sectionBody: {
-    fontSize: 14,
-    color: '#b0b7d8',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
+  clientName: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  clientNote: {
+    color: '#97a4c8',
+    fontSize: 12,
+  },
+  statusBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  timelineRow: {
+    flexDirection: 'column',
+    paddingVertical: 10,
+  },
+  timelineDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1f2b',
+  },
+  timelineLabel: {
+    color: '#6b7bff',
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  timelineText: {
+    color: '#e5e7ff',
+    fontSize: 14,
+  },
+  sectionBody: {
+    color: '#b4bfdd',
+    fontSize: 14,
+    marginBottom: 14,
+  },
   primaryButton: {
-    backgroundColor: '#5c93ff',
+    backgroundColor: '#6fb1ff',
+    borderRadius: 16,
     paddingVertical: 12,
-    borderRadius: 14,
     alignItems: 'center',
   },
-  primaryButtonText: {
-    color: '#0e1420',
+  primaryText: {
+    color: '#0c1221',
     fontWeight: '700',
-    fontSize: 14,
   },
 });
