@@ -13,6 +13,7 @@ import ClientConversationsPanel from "../ClientConversationsPanel";
 import ReceiptsPanel from "../ReceiptsPanel";
 import ServiceLinesPanel from "../ServiceLinesPanel";
 import ReceiptModal from "../billing/ReceiptModal";
+import TestimonialRequestModal from "../TestimonialRequestModal";
 
 interface ClientDetailScreenProps {
   clientId: string;
@@ -22,6 +23,7 @@ interface ClientDetailScreenProps {
 export default function ClientDetailScreen({ clientId, onBack }: ClientDetailScreenProps) {
   const { tokens } = useTheme();
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showTestimonialModal, setShowTestimonialModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Fetch client data
@@ -200,7 +202,10 @@ export default function ClientDetailScreen({ clientId, onBack }: ClientDetailScr
       {/* Testimonials */}
       <NeomorphicCard style={styles.card} contentStyle={styles.cardContent}>
         <Text style={[styles.sectionTitle, { color: tokens.textPrimary }]}>Testimonials</Text>
-        <TestimonialsPanel clientId={clientId} />
+        <TestimonialsPanel
+          clientId={clientId}
+          onAddTestimonial={() => setShowTestimonialModal(true)}
+        />
       </NeomorphicCard>
 
       {/* Notes */}
@@ -223,6 +228,17 @@ export default function ClientDetailScreen({ clientId, onBack }: ClientDetailScr
         onReceiptCreated={() => {
           setShowReceiptModal(false);
           setRefreshKey(prev => prev + 1); // Trigger refresh of ReceiptsPanel
+        }}
+      />
+
+      {/* Testimonial Request Modal */}
+      <TestimonialRequestModal
+        visible={showTestimonialModal}
+        onClose={() => setShowTestimonialModal(false)}
+        clientId={clientId}
+        onRequestSent={() => {
+          setShowTestimonialModal(false);
+          setRefreshKey(prev => prev + 1); // Trigger refresh of TestimonialsPanel
         }}
       />
     </ScrollView>
