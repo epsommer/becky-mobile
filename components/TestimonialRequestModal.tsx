@@ -337,7 +337,10 @@ export default function TestimonialRequestModal({
                     {loadingServiceLines ? (
                       <ActivityIndicator size="small" color={tokens.accent} />
                     ) : (
-                      <ScrollView style={styles.pickerScroll}>
+                      <ScrollView
+                        style={styles.pickerScroll}
+                        nestedScrollEnabled={true}
+                      >
                         <TouchableOpacity
                           style={styles.pickerItem}
                           onPress={() => {
@@ -392,7 +395,10 @@ export default function TestimonialRequestModal({
                       2. Select Service *
                     </Text>
                     <View style={[styles.pickerContainer, { borderColor: tokens.border }]}>
-                      <ScrollView style={styles.pickerScroll}>
+                      <ScrollView
+                        style={styles.pickerScroll}
+                        nestedScrollEnabled={true}
+                      >
                         <TouchableOpacity
                           style={styles.pickerItem}
                           onPress={() => {
