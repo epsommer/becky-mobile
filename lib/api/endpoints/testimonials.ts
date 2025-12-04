@@ -158,12 +158,15 @@ export const testimonialsApi = {
   /**
    * Send testimonial request to client
    *
-   * @param clientId - Client ID
+   * @param data - Request data
    * @returns Send result
    */
-  sendTestimonialRequest: async (
-    clientId: string
-  ): Promise<ApiResponse<any>> => {
-    return apiClient.post<any>('/api/testimonials/send-request', { clientId });
+  sendTestimonialRequest: async (data: {
+    clientId: string;
+    serviceId?: string;
+    serviceName?: string;
+    message?: string;
+  }): Promise<ApiResponse<any>> => {
+    return apiClient.post<any>('/api/testimonials/send-request', data);
   },
 };

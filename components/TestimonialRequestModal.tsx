@@ -161,23 +161,14 @@ export default function TestimonialRequestModal({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(
-        "https://evangelosommer.com/api/testimonials/send-request",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientId: selectedClient.id,
-            serviceId: serviceLineSlug,
-            serviceName,
-            message,
-          }),
-        }
-      );
+      const response = await testimonialsApi.sendTestimonialRequest({
+        clientId: selectedClient.id,
+        serviceId: serviceLineSlug,
+        serviceName,
+        message,
+      });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (response.success) {
         setSuccess(true);
         onRequestSent?.();
 
@@ -186,7 +177,7 @@ export default function TestimonialRequestModal({
           handleClose();
         }, 2000);
       } else {
-        Alert.alert("Error", data.error || "Failed to send testimonial request");
+        Alert.alert("Error", response.error || "Failed to send testimonial request");
       }
     } catch (err) {
       Alert.alert("Error", "An error occurred while sending the request");
