@@ -11,6 +11,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemeTokens, useTheme } from "../theme/ThemeContext";
@@ -68,7 +70,15 @@ export default function TestimonialRequestModal({
         `https://evangelosommer.com/api/service-lines`
       );
       const data = await response.json();
-      return { success: true, data: data.data || [] };
+      console.log('[TestimonialRequestModal] Raw service lines response:', data);
+      console.log('[TestimonialRequestModal] Service lines count:', data.data?.length || 0);
+      console.log('[TestimonialRequestModal] Service lines:', data.data?.map((sl: any) => sl.name) || []);
+
+      // Filter to only active service lines
+      const activeLines = (data.data || []).filter((sl: any) => sl.isActive !== false);
+      console.log('[TestimonialRequestModal] Active service lines:', activeLines.map((sl: any) => sl.name));
+
+      return { success: true, data: activeLines };
     },
     []
   );
@@ -212,7 +222,10 @@ export default function TestimonialRequestModal({
       transparent={true}
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.overlay}
+      >
         <View style={styles.modalContainer}>
           {/* Header */}
           <View style={styles.header}>
@@ -228,6 +241,7 @@ export default function TestimonialRequestModal({
 
           <ScrollView
             style={styles.content}
+            contentContainerStyle={styles.scrollContentContainer}
             showsVerticalScrollIndicator={false}
           >
             {success ? (
@@ -512,7 +526,7 @@ export default function TestimonialRequestModal({
             )}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -528,8 +542,8 @@ const createStyles = (tokens: ThemeTokens) =>
       backgroundColor: tokens.background,
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
-      maxHeight: "90%",
-      paddingBottom: 20,
+      maxHeight: "85%",
+      paddingBottom: Platform.OS === "ios" ? 34 : 20,
     },
     header: {
       flexDirection: "row",
@@ -551,6 +565,9 @@ const createStyles = (tokens: ThemeTokens) =>
     },
     content: {
       padding: 16,
+    },
+    scrollContentContainer: {
+      paddingBottom: 40,
     },
     section: {
       marginBottom: 20,
@@ -627,7 +644,7 @@ const createStyles = (tokens: ThemeTokens) =>
     pickerContainer: {
       borderWidth: 1,
       borderRadius: 8,
-      maxHeight: 150,
+      maxHeight: 200,
     },
     pickerScroll: {
       padding: 4,
