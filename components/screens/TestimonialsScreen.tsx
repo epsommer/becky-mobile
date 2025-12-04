@@ -1,15 +1,24 @@
 "use client";
 
 import React from "react";
-import { ScrollView, StyleSheet, Text } from "react-native";
+import { ScrollView, StyleSheet, Text, Alert } from "react-native";
 import TestimonialsPanel from "../TestimonialsPanel";
 import QuickMessagePanel from "../QuickMessagePanel";
 
 export default function TestimonialsScreen() {
+  const handleAddTestimonial = () => {
+    // TODO: Implement testimonial creation modal
+    Alert.alert(
+      'Add Testimonial',
+      'Testimonial creation feature coming soon!',
+      [{ text: 'OK' }]
+    );
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={styles.heading}>Testimonials</Text>
-      <TestimonialsPanel />
+      <TestimonialsPanel onAddTestimonial={handleAddTestimonial} />
       <QuickMessagePanel />
     </ScrollView>
   );
