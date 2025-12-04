@@ -74,12 +74,12 @@ export default function TestimonialRequestModal({
   );
 
   // Get selected client
-  const selectedClient = selectedClientId
+  const selectedClient = selectedClientId && clients
     ? clients.find((c: any) => c.id === selectedClientId)
     : null;
 
   // Filter clients for search
-  const filteredClients = clients.filter((c: any) =>
+  const filteredClients = (clients || []).filter((c: any) =>
     c.name?.toLowerCase().includes(clientSearchQuery.toLowerCase()) ||
     c.email?.toLowerCase().includes(clientSearchQuery.toLowerCase()) ||
     c.company?.toLowerCase().includes(clientSearchQuery.toLowerCase())
