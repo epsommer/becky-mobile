@@ -34,10 +34,11 @@ const protectedPageRoutes = [
   '/gallery',
 ];
 
-// Routes that are public (authentication, health checks, etc.)
+// Routes that are public (authentication, health checks, testimonial submissions, etc.)
 const publicRoutes = [
   '/api/auth',
   '/api/health',
+  '/api/testimonials/submit', // Public endpoint for clients to submit testimonials
 ];
 
 // Login routes that need stricter rate limiting
@@ -244,6 +245,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/api/:path*',
-    '/((?!auth|_next/static|_next/image|favicon.ico).*)',
+    '/((?!auth|testimonials/submit|_next/static|_next/image|favicon.ico).*)',
   ],
 };
