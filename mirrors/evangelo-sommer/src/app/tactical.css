@@ -1,0 +1,1389 @@
+/**
+ * TACTICAL DESIGN SYSTEM
+ *
+ * Military/HUD-inspired interface styling with angular corners,
+ * tactical typography, and data visualization elements.
+ *
+ * DEPENDENCIES:
+ * This stylesheet requires CSS custom properties from globals.css:
+ * - Color tokens (--tactical-*, --hud-*, --gold, etc.)
+ * - Typography tokens (--font-primary, --font-mono, --font-display, etc.)
+ * - Theme variables (--background, --foreground, --border, etc.)
+ *
+ * USAGE:
+ * Import this file after globals.css in your layout or page components.
+ */
+
+/* HUD Interface Components */
+.tactical-frame {
+  border: 2px solid var(--tactical-gold);
+  background: var(--hud-background-secondary);
+  border-radius: 2px 0 2px 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+}
+
+/* Terminated Corners for Widgets */
+.widget-terminated-corners {
+  position: relative;
+  border-radius: 0 !important;
+}
+
+.widget-terminated-corners * {
+  border-radius: 0 !important;
+}
+
+.widget-terminated-corners::before,
+.widget-terminated-corners::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--hud-border);
+  z-index: 2;
+  border-radius: 1px;
+}
+
+.widget-terminated-corners::before {
+  top: 4px;
+  left: 4px;
+  border-right: none;
+  border-bottom: none;
+  clip-path: polygon(0 0, calc(100% - 2px) 0, 100% 2px, 2px 100%, 0 calc(100% - 2px));
+}
+
+.widget-terminated-corners::after {
+  bottom: 4px;
+  right: 4px;
+  border-left: none;
+  border-top: none;
+  clip-path: polygon(calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px));
+}
+
+.corner-markers::before,
+.corner-markers::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--tactical-gold);
+  opacity: 0.6;
+}
+
+.corner-markers::before {
+  top: 4px;
+  left: 4px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.corner-markers::after {
+  bottom: 4px;
+  right: 4px;
+  border-left: none;
+  border-top: none;
+}
+
+.diagonal-accent {
+  position: relative;
+  overflow: hidden;
+}
+
+.diagonal-accent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(45deg, transparent 40%, var(--tactical-gold) 50%, transparent 60%);
+  opacity: 0.7;
+}
+
+.hud-overlay {
+  background: var(--hud-background-overlay);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--tactical-gold);
+}
+
+.status-beacon {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+.status-beacon.operational { background: var(--tactical-success); }
+.status-beacon.critical { background: var(--tactical-error); }
+.status-beacon.standby { background: var(--tactical-warning); }
+.status-beacon.active { background: var(--tactical-gold); }
+
+/* Tactical HUD Font Classes */
+.font-military {
+  font-family: var(--font-primary) !important;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.font-condensed {
+  font-family: var(--font-condensed) !important;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.font-tactical {
+  font-family: var(--font-mono) !important;
+  font-weight: 400;
+  letter-spacing: 0.025em;
+  font-variant-numeric: tabular-nums;
+}
+
+.font-display {
+  font-family: var(--font-display) !important;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Military Heading Typography */
+h1, h2, h3, h4, h5, h6,
+.text-heading {
+  font-family: var(--font-display) !important;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--hud-text-primary);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Military UI Elements Typography */
+button:not(.logo-button), .btn,
+.nav-item, .nav-tactical,
+label, .form-label {
+  font-family: var(--font-primary) !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+/* Military Body Text */
+p:not(.logo-button *):not(.tk-lores-9-wide):not(.tk-lores-9-wide *),
+span:not(.logo-button *):not(.tk-lores-9-wide):not(.tk-lores-9-wide *),
+div:not(.logo-button *):not(.tk-lores-9-wide):not(.tk-lores-9-wide *) {
+  font-family: var(--font-body) !important;
+  font-weight: 400;
+  letter-spacing: 0.025em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Legacy Support */
+.font-modern {
+  font-family: var(--font-body) !important;
+}
+
+/* SHARP MODERN COMPONENT STYLES */
+
+/* Cards - Sharp, No Shadows, Square Corners */
+.card {
+  background: var(--bg-primary);
+  border: 1px solid var(--light-grey);
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.card-header {
+  border-bottom: 1px solid var(--light-grey);
+  background: var(--off-white);
+  padding: 1.5rem;
+}
+
+/* Buttons - Sharp Modern Style */
+.btn-primary {
+  background: var(--gold);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 0 !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--font-primary);                /* FF Utility Web Pro */
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: var(--gold-dark);
+  color: var(--text-primary);
+}
+
+.btn-secondary {
+  background: var(--dark-grey);
+  color: var(--text-light);
+  border: none;
+  border-radius: 0 !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--font-primary);                /* FF Utility Web Pro */
+}
+
+.btn-secondary:hover {
+  background: var(--medium-grey);
+  color: var(--text-light);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text-primary);
+  border: 2px solid var(--gold);
+  border-radius: 0 !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--font-primary);                /* FF Utility Web Pro */
+}
+
+.btn-outline:hover {
+  background: var(--gold);
+  color: var(--text-primary);
+}
+
+/* Inputs - Square Modern Style */
+.input {
+  border: 2px solid var(--light-grey);
+  border-radius: 0 !important;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-primary);                /* FF Utility Web Pro */
+  padding: 0.75rem 1rem;
+  transition: border-color 0.2s ease;
+}
+
+.input:focus {
+  border-color: var(--gold);
+  outline: none;
+  box-shadow: none;
+}
+
+/* Force square corners on most elements except neomorphic design */
+*:not(.neomorphic-button):not(.neomorphic-toggle):not(.neomorphic-toggle__indicator):not(.neomorphic-input):not(.neomorphic-submit):not(.neomorphic-logo):not(.neomorphic-card):not(.neomorphic-rounded):not(.neomorphic-rounded-lg):not(.neomorphic-rounded-full):not([class*="neomorphic"]):not([class*="neo-"]) {
+  border-radius: 0 !important;
+}
+
+/* Override Tailwind rounded classes (except neomorphic) */
+.rounded:not([class*="neomorphic"]):not([class*="neo-"]),
+.rounded-sm:not([class*="neomorphic"]):not([class*="neo-"]),
+.rounded-md:not([class*="neomorphic"]):not([class*="neo-"]),
+.rounded-lg:not([class*="neomorphic"]):not([class*="neo-"]),
+.rounded-xl:not([class*="neomorphic"]):not([class*="neo-"]),
+.rounded-2xl:not([class*="neomorphic"]):not([class*="neo-"]),
+.rounded-3xl:not([class*="neomorphic"]):not([class*="neo-"]),
+.rounded-full:not([class*="neomorphic"]):not([class*="neo-"]) {
+  border-radius: 0 !important;
+}
+
+/* Neomorphic design exceptions - allow rounded corners */
+.neomorphic-rounded,
+[class*="neomorphic"] .neomorphic-rounded {
+  border-radius: 0.5rem !important;
+}
+
+.neomorphic-rounded-lg,
+[class*="neomorphic"] .neomorphic-rounded-lg {
+  border-radius: 1rem !important;
+}
+
+.neomorphic-rounded-full,
+[class*="neomorphic"] .neomorphic-rounded-full {
+  border-radius: 50% !important;
+}
+
+/* Typography Styles */
+.text-heading {
+  font-family: var(--font-display);                  /* Halogen */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+}
+
+.text-subheading {
+  font-family: var(--font-primary);                /* FF Utility Web Pro */
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+/* Navigation Styles */
+.nav-item {
+  font-family: var(--font-primary);                /* FF Utility Web Pro */
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.nav-item:hover {
+  color: var(--text-primary);
+  background: var(--light-grey);
+}
+
+.nav-item.active {
+  background: var(--gold);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Form Elements */
+input:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui input):not(.gallery-ui *),
+select:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui select):not(.gallery-ui *),
+textarea:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui textarea):not(.gallery-ui *) {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 2px solid var(--light-grey);
+  border-radius: 0 !important;
+  font-family: var(--font-primary);                /* FF Utility Web Pro */
+}
+
+input:focus:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui input):not(.gallery-ui *),
+select:focus:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui select):not(.gallery-ui *),
+textarea:focus:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui textarea):not(.gallery-ui *) {
+  border-color: var(--gold);
+  outline: none;
+  box-shadow: none;
+}
+
+input:not([class*="neomorphic"]):not([class*="neo-"])::placeholder,
+textarea:not([class*="neomorphic"]):not([class*="neo-"])::placeholder {
+  color: var(--text-secondary);
+  font-family: var(--font-primary);                /* FF Utility Web Pro */
+}
+
+label {
+  color: var(--text-primary);
+  font-family: var(--font-primary);                /* FF Utility Web Pro */
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.875rem;
+}
+
+/* Priority Colors for Tasks */
+.priority-low {
+  background: var(--light-grey);
+  color: var(--text-primary);
+}
+
+.priority-medium {
+  background: var(--gold);
+  color: var(--text-primary);
+}
+
+.priority-high {
+  background: var(--dark-grey);
+  color: var(--text-light);
+}
+
+.priority-urgent {
+  background: #DC2626;
+  color: var(--text-light);
+}
+
+/* Status Colors */
+.status-pending {
+  border-left-color: var(--light-grey);
+}
+
+.status-in-progress {
+  border-left-color: var(--gold);
+}
+
+.status-completed {
+  border-left-color: #16A34A;
+}
+
+.status-cancelled {
+  border-left-color: #DC2626;
+}
+
+/* Service Line Colors - Tactical Palette */
+.service-landscaping {
+  background: var(--tactical-green);                  /* #16A34A */
+}
+
+.service-snow-removal {
+  background: var(--tactical-grey-600);              /* Remove blue, use tactical grey */
+}
+
+.service-hair-cutting {
+  background: var(--tactical-brown);                 /* Use tactical brown */
+}
+
+.service-creative-development {
+  background: var(--tactical-gold);                  /* Use tactical gold */
+}
+
+/* Progress Bar */
+.progress-bar {
+  width: 100%;
+  background: var(--light-grey);
+  height: 0.5rem;
+  border-radius: 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--gold);
+  transition: width 0.3s ease;
+  border-radius: 0;
+}
+
+/* Utility Classes */
+.bg-tactical-gold { background-color: var(--gold); }
+.bg-tactical-gold-light { background-color: var(--gold-light); }
+.bg-tactical-gold-dark { background-color: var(--gold-dark); }
+.bg-dark-grey { background-color: var(--dark-grey); }
+.bg-medium-grey { background-color: var(--medium-grey); }
+.bg-light-grey { background-color: var(--light-grey); }
+.bg-hud-background-primary { background-color: var(--hud-background-primary); }
+.bg-hud-background-secondary { background-color: var(--hud-background-secondary); }
+
+.text-gold { color: var(--gold); }
+.text-gold-dark { color: var(--gold-dark); }
+.text-hud-text-primary { color: var(--hud-text-primary); }
+.text-hud-text-secondary { color: var(--hud-text-secondary); }
+.text-medium-grey { color: var(--medium-grey); }
+.text-light-grey { color: var(--light-grey); }
+
+.border-hud-border-accent { border-color: var(--hud-border-accent); }
+.border-dark-grey { border-color: var(--dark-grey); }
+.border-hud-border { border-color: var(--hud-border); }
+
+/* Data Color Classes */
+.text-data-red-severe { color: var(--data-red-severe); }
+.text-data-red-major { color: var(--data-red-major); }
+.text-data-orange { color: var(--data-orange); }
+.text-data-yellow { color: var(--data-yellow); }
+.text-data-green-mild { color: var(--data-green-mild); }
+.text-data-green-good { color: var(--data-green-good); }
+.text-data-teal { color: var(--data-teal); }
+.text-data-cyan { color: var(--data-cyan); }
+.text-data-gold-bright { color: var(--data-gold-bright); }
+.text-data-violet { color: var(--data-violet); }
+.text-data-pink { color: var(--data-pink); }
+
+.bg-data-red-severe { background-color: var(--data-red-severe); }
+.bg-data-red-major { background-color: var(--data-red-major); }
+.bg-data-orange { background-color: var(--data-orange); }
+.bg-data-yellow { background-color: var(--data-yellow); }
+.bg-data-green-mild { background-color: var(--data-green-mild); }
+.bg-data-green-good { background-color: var(--data-green-good); }
+.bg-data-teal { background-color: var(--data-teal); }
+.bg-data-cyan { background-color: var(--data-cyan); }
+.bg-data-gold-bright { background-color: var(--data-gold-bright); }
+.bg-data-violet { background-color: var(--data-violet); }
+.bg-data-pink { background-color: var(--data-pink); }
+
+.border-data-red-severe { border-color: var(--data-red-severe); }
+.border-data-red-major { border-color: var(--data-red-major); }
+.border-data-orange { border-color: var(--data-orange); }
+.border-data-yellow { border-color: var(--data-yellow); }
+.border-data-green-mild { border-color: var(--data-green-mild); }
+.border-data-green-good { border-color: var(--data-green-good); }
+.border-data-teal { border-color: var(--data-teal); }
+.border-data-cyan { border-color: var(--data-cyan); }
+.border-data-gold-bright { border-color: var(--data-gold-bright); }
+.border-data-violet { border-color: var(--data-violet); }
+.border-data-pink { border-color: var(--data-pink); }
+
+/* Remove all shadows EXCEPT neomorphic elements */
+.shadow:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui):not(.gallery-ui *),
+.shadow-sm:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui):not(.gallery-ui *),
+.shadow-md:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui):not(.gallery-ui *),
+.shadow-lg:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui):not(.gallery-ui *),
+.shadow-xl:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui):not(.gallery-ui *),
+.shadow-2xl:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui):not(.gallery-ui *) {
+  box-shadow: none !important;
+}
+
+/* Ensure consistent font family */
+.font-space-grotesk {
+  font-family: var(--font-display);                  /* Halogen */
+}
+
+/* Modern spacing and layout */
+.container-modern {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Sharp dividers */
+.divider {
+  height: 1px;
+  background: var(--light-grey);
+  border: none;
+}
+
+.divider-vertical {
+  width: 1px;
+  background: var(--light-grey);
+  border: none;
+}
+
+/* Animation utilities */
+.transition-modern {
+  transition: all 0.2s ease;
+}
+
+/* Ensure no rounded corners anywhere (except neomorphic design and gallery UI) */
+button:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui button):not(.gallery-ui *),
+input:not([class*="neomorphic"]):not([class*="neo-"]):not(.neomorphic-input):not(.gallery-ui input):not(.gallery-ui *),
+select:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui select):not(.gallery-ui *),
+textarea:not([class*="neomorphic"]):not([class*="neo-"]):not(.neomorphic-input):not(.gallery-ui textarea):not(.gallery-ui *),
+.card:not([class*="neomorphic"]):not([class*="neo-"]):not(.neomorphic-card):not(.gallery-ui):not(.gallery-ui *),
+.modal:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui):not(.gallery-ui *),
+.dropdown:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui):not(.gallery-ui *),
+.tooltip:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui):not(.gallery-ui *) {
+  border-radius: 0 !important;
+}
+
+/* Cursor Pointer Fixes */
+.clickable,
+button:not(:disabled),
+.btn,
+[role="button"],
+a,
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
+button:disabled,
+.disabled {
+  cursor: not-allowed !important;
+}
+
+/* Hover states */
+.hover-gold:hover {
+  color: var(--gold) !important;
+  cursor: pointer !important;
+}
+
+.hover-border-hud-border-accent:hover {
+  border-color: var(--gold) !important;
+  cursor: pointer !important;
+}
+
+.hover-bg-tactical-gold:hover {
+  background-color: var(--gold) !important;
+  cursor: pointer !important;
+}
+
+.hover-bg-light-grey:hover {
+  background-color: var(--light-grey) !important;
+  cursor: pointer !important;
+}
+
+/* Interactive elements */
+.interactive {
+  cursor: pointer !important;
+  transition: all 0.2s ease;
+}
+
+.interactive:hover {
+  opacity: 0.8;
+}
+
+/* Tactical Data Display Elements */
+.data-terminal {
+  background: var(--tactical-grey-900);
+  border: 2px solid var(--tactical-green);
+  color: var(--tactical-green);
+  font-family: var(--font-mono);                     /* Letter Gothic Std */
+  padding: 1rem;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  box-shadow:
+    inset 0 0 20px rgba(22, 163, 74, 0.1),
+    0 0 20px rgba(22, 163, 74, 0.3);
+}
+
+.hud-metric {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--hud-background-secondary);
+  border-left: 4px solid var(--tactical-gold);
+  font-family: var(--font-mono);                     /* Letter Gothic Std */
+  position: relative;
+}
+
+.hud-metric::before {
+  content: '▶';
+  color: var(--tactical-gold);
+  font-size: 0.75rem;
+}
+
+.hud-alert {
+  background: var(--tactical-red);
+  color: var(--tactical-white);
+  padding: 1rem;
+  border: 2px solid var(--tactical-red);
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  animation: pulse-hud 1.5s infinite;
+  font-family: var(--font-mono);                     /* Letter Gothic Std */
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Tactical Grid System */
+.tactical-grid {
+  display: grid;
+  gap: 1rem;
+  background-image:
+    linear-gradient(rgba(212, 175, 55, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212, 175, 55, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+  padding: 1rem;
+}
+
+/* Tactical Tabs */
+.tab-tactical {
+  background: transparent;
+  border: 2px solid var(--hud-border);
+  color: var(--hud-text-secondary);
+  padding: 0.75rem 1.5rem;
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 100%, 0 100%);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  margin-right: -2px;
+}
+
+.tab-tactical:hover {
+  border-color: var(--tactical-gold);
+  color: var(--hud-text-primary);
+}
+
+.tab-tactical.active {
+  background: var(--tactical-gold);
+  border-color: var(--tactical-gold);
+  color: var(--tactical-grey-900);
+  z-index: 1;
+}
+
+.tab-tactical.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--tactical-gold);
+}
+
+/* Tactical Modal Overlays */
+.modal-tactical {
+  background: var(--hud-background-overlay);
+  border: 3px solid var(--tactical-gold);
+  clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px));
+  box-shadow:
+    var(--hud-shadow-tactical),
+    inset 0 0 50px rgba(212, 175, 55, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.modal-tactical::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(212, 175, 55, 0.2) 20%,
+    rgba(212, 175, 55, 0.4) 50%,
+    rgba(212, 175, 55, 0.2) 80%,
+    transparent
+  );
+  clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 24px, 0 100%);
+  pointer-events: none;
+}
+
+/* Ensure buttons inside modal-tactical have proper cursor behavior */
+.modal-tactical button,
+.modal-tactical .nav-tactical {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 999999 !important;
+}
+
+.modal-tactical button:hover,
+.modal-tactical .nav-tactical:hover {
+  cursor: pointer !important;
+  background-color: rgba(212, 175, 55, 0.1) !important;
+  border-color: var(--tactical-gold) !important;
+}
+
+/* Force remove any pointer-events none from modal-tactical children */
+.modal-tactical > * {
+  pointer-events: auto !important;
+}
+
+.modal-tactical > * > * {
+  pointer-events: auto !important;
+}
+
+/* Additional Utility Classes */
+.font-jetbrains-mono {
+  font-family: var(--font-jetbrains-mono);
+}
+
+.clip-path-diamond {
+  clip-path: polygon(20% 0%, 80% 0%, 100% 50%, 80% 100%, 20% 100%, 0% 50%);
+}
+
+.clip-path-angled {
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 100%, 4px 100%);
+}
+
+/* =============================================
+   ENHANCED DARK MODE SUPPORT
+   ============================================= */
+
+/* Enhanced Dark Mode Body Background */
+[data-theme="dark"] body {
+  background: linear-gradient(135deg, var(--tactical-grey-900) 0%, var(--tactical-grey-800) 100%);
+}
+
+/* Enhanced Header and Navigation Dark Mode */
+[data-theme="dark"] header,
+[data-theme="dark"] .header,
+[data-theme="dark"] nav {
+  background-color: var(--hud-background-overlay) !important;
+  border-color: var(--tactical-gold) !important;
+}
+
+/* Override for Mocha Theme */
+.mocha-mode header,
+.mocha-mode .header,
+.mocha-mode nav {
+  background-color: #1c1917 !important;
+}
+
+/* Override for True Night Theme */
+.true-night-mode header,
+.true-night-mode .header,
+.true-night-mode nav {
+  background-color: #1a1a1a !important;
+}
+
+[data-theme="dark"] .bg-hud-overlay,
+[data-theme="dark"] .bg-dark-grey {
+  background-color: var(--hud-background-overlay) !important;
+}
+
+/* Enhanced Sidebar Dark Mode */
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] [class*="sidebar"],
+[data-theme="dark"] aside {
+  background-color: var(--hud-background-overlay) !important;
+  border-color: var(--tactical-gold) !important;
+  color: var(--hud-text-primary) !important;
+}
+
+/* Specific navigation item styling */
+[data-theme="dark"] .nav-item,
+[data-theme="dark"] .nav-tactical {
+  color: var(--hud-text-secondary) !important;
+  border-color: transparent !important;
+  cursor: pointer !important;
+}
+
+[data-theme="dark"] .nav-item:hover,
+[data-theme="dark"] .nav-tactical:hover {
+  background-color: var(--tactical-grey-700) !important;
+  color: var(--hud-text-primary) !important;
+  border-color: var(--tactical-gold) !important;
+}
+
+[data-theme="dark"] .nav-item.active,
+[data-theme="dark"] .nav-tactical.active {
+  background-color: var(--tactical-gold) !important;
+  color: var(--tactical-grey-900) !important;
+  border-color: var(--tactical-gold) !important;
+}
+
+/* Enhanced Dark Mode Component Overrides */
+[data-theme="dark"] .bg-white,
+[data-theme="dark"] .bg-gray-50,
+[data-theme="dark"] .bg-gray-100 {
+  background-color: var(--hud-background-secondary) !important;
+}
+
+[data-theme="dark"] .bg-gray-200,
+[data-theme="dark"] .bg-gray-300 {
+  background-color: var(--tactical-grey-700) !important;
+}
+
+[data-theme="dark"] .text-gray-900,
+[data-theme="dark"] .text-black {
+  color: var(--hud-text-primary) !important;
+}
+
+[data-theme="dark"] .text-gray-600,
+[data-theme="dark"] .text-gray-500 {
+  color: var(--hud-text-secondary) !important;
+}
+
+[data-theme="dark"] .border-gray-200,
+[data-theme="dark"] .border-gray-300 {
+  border-color: var(--hud-border) !important;
+}
+
+/* Enhanced Form Elements Dark Mode */
+[data-theme="dark"] input:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui input):not(.gallery-ui *),
+[data-theme="dark"] select:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui select):not(.gallery-ui *),
+[data-theme="dark"] textarea:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui textarea):not(.gallery-ui *) {
+  background-color: var(--hud-background-secondary) !important;
+  color: var(--hud-text-primary) !important;
+  border-color: var(--hud-border) !important;
+}
+
+[data-theme="dark"] input:focus:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui input):not(.gallery-ui *),
+[data-theme="dark"] select:focus:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui select):not(.gallery-ui *),
+[data-theme="dark"] textarea:focus:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui textarea):not(.gallery-ui *) {
+  border-color: var(--tactical-gold) !important;
+  box-shadow: var(--hud-glow-primary) !important;
+}
+
+[data-theme="dark"] input:not([class*="neomorphic"]):not([class*="neo-"])::placeholder,
+[data-theme="dark"] textarea:not([class*="neomorphic"]):not([class*="neo-"])::placeholder {
+  color: var(--hud-text-secondary) !important;
+}
+
+/* Enhanced Button Dark Mode - Only in Tactical Mode */
+[data-theme="dark"].tactical-mode button:not(.btn-tactical):not(.btn-secondary):not(.btn-outline):not(.theme-toggle):not(.nav-button):not(.logo-button):not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui button):not(.gallery-ui *):not(.password-toggle-btn):not(.forgot-password-btn):not(.tk-lores-9-wide):not(.tk-lores-9-wide *) {
+  background-color: var(--tactical-gold) !important;
+  color: var(--tactical-grey-900) !important;
+  border-color: var(--tactical-gold) !important;
+}
+
+[data-theme="dark"].tactical-mode button:hover:not(.btn-tactical):not(.btn-secondary):not(.btn-outline):not(.theme-toggle):not(.nav-button):not(.logo-button):not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui button):not(.gallery-ui *):not(.password-toggle-btn):not(.forgot-password-btn):not(.tk-lores-9-wide):not(.tk-lores-9-wide *) {
+  background-color: var(--tactical-amber) !important;
+  box-shadow: var(--hud-glow-secondary) !important;
+}
+
+/* Auth page utility buttons - keep transparent */
+.password-toggle-btn,
+.forgot-password-btn {
+  background: transparent !important;
+  border: none !important;
+}
+
+.password-toggle-btn:hover,
+.forgot-password-btn:hover {
+  background: transparent !important;
+}
+
+/* Enhanced Modal and Dropdown Dark Mode */
+[data-theme="dark"] .shadow-lg:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui):not(.gallery-ui *),
+[data-theme="dark"] .shadow-md:not([class*="neomorphic"]):not([class*="neo-"]):not(.gallery-ui):not(.gallery-ui *) {
+  box-shadow: var(--hud-shadow-tactical) !important;
+}
+
+[data-theme="dark"] .backdrop-blur-sm {
+  backdrop-filter: blur(8px);
+  background-color: var(--hud-background-overlay) !important;
+}
+
+/* Enhanced Badge and Status Elements */
+[data-theme="dark"] .bg-amber-100,
+[data-theme="dark"] .bg-green-100,
+[data-theme="dark"] .bg-yellow-100,
+[data-theme="dark"] .bg-red-100 {
+  background-color: var(--tactical-grey-700) !important;
+}
+
+[data-theme="dark"] .text-amber-800,
+[data-theme="dark"] .text-green-800,
+[data-theme="dark"] .text-yellow-800,
+[data-theme="dark"] .text-red-800 {
+  color: var(--hud-text-primary) !important;
+}
+
+/* Enhanced Hover States for Dark Mode */
+[data-theme="dark"] .hover-bg-gray-50:hover,
+[data-theme="dark"] .hover-bg-white:hover {
+  background-color: var(--tactical-grey-700) !important;
+}
+
+[data-theme="dark"] .hover-bg-red-50:hover {
+  background-color: rgba(220, 38, 38, 0.1) !important;
+}
+
+/* Tailwind hover overrides for dark mode */
+[data-theme="dark"] .hover\:bg-gray-50:hover {
+  background-color: var(--tactical-grey-700) !important;
+}
+
+[data-theme="dark"] .hover\:bg-white:hover {
+  background-color: var(--tactical-grey-700) !important;
+}
+
+[data-theme="dark"] .hover\:bg-red-50:hover {
+  background-color: rgba(220, 38, 38, 0.1) !important;
+}
+
+/* Enhanced Typography Dark Mode */
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] h5,
+[data-theme="dark"] h6 {
+  color: var(--hud-text-primary) !important;
+}
+
+[data-theme="dark"] p {
+  color: var(--hud-text-primary) !important;
+}
+
+/* Enhanced UI Component Support */
+[data-theme="dark"] .bg-background {
+  background-color: var(--hud-background-primary) !important;
+}
+
+[data-theme="dark"] .bg-card {
+  background-color: var(--hud-background-secondary) !important;
+}
+
+[data-theme="dark"] .text-foreground {
+  color: var(--hud-text-primary) !important;
+}
+
+[data-theme="dark"] .text-card-foreground {
+  color: var(--hud-text-primary) !important;
+}
+
+[data-theme="dark"] .text-muted-foreground {
+  color: var(--hud-text-secondary) !important;
+}
+
+[data-theme="dark"] .border {
+  border-color: var(--hud-border) !important;
+}
+
+/* Ensure all white backgrounds become dark */
+[data-theme="dark"] [class*="bg-white"],
+[data-theme="dark"] [style*="background: white"],
+[data-theme="dark"] [style*="background-color: white"],
+[data-theme="dark"] [style*="background: #fff"],
+[data-theme="dark"] [style*="background-color: #fff"] {
+  background-color: var(--hud-background-secondary) !important;
+}
+
+/* Ensure all dark text becomes light */
+[data-theme="dark"] [class*="text-black"],
+[data-theme="dark"] [style*="color: black"],
+[data-theme="dark"] [style*="color: #000"] {
+  color: var(--hud-text-primary) !important;
+}
+
+/* Enhanced Dark Mode Link Elements */
+/* Commented out to allow specific link styling in components */
+/* [data-theme="dark"] a {
+  color: var(--tactical-gold) !important;
+} */
+
+/* [data-theme="dark"] a:hover {
+  color: var(--tactical-amber) !important;
+  text-shadow: 0 0 5px var(--tactical-amber) !important;
+} */
+
+/* Enhanced Dark Mode Root Elements */
+[data-theme="dark"] html {
+  background-color: var(--tactical-grey-900) !important;
+}
+
+[data-theme="dark"] #__next,
+[data-theme="dark"] main,
+[data-theme="dark"] .app {
+  background-color: var(--hud-background-primary) !important;
+  color: var(--hud-text-primary) !important;
+  min-height: 100vh;
+}
+
+/* Global Dark Mode Enforcement */
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Tactical Theme Transition Effects */
+* {
+  transition:
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Enhanced Selection and Focus States */
+/* Default/Light Theme Selection */
+::selection {
+  background-color: #D4AF37;
+  color: #1a1a1a;
+}
+
+/* Dark Theme Selection (Tactical) */
+[data-theme="dark"] ::selection {
+  background-color: var(--tactical-gold);
+  color: var(--tactical-grey-900);
+}
+
+/* True Night Theme Selection - Light grey on dark */
+.true-night-mode ::selection {
+  background-color: #404040;
+  color: #e0e0e0;
+}
+
+/* Mocha Theme Selection - Lime green */
+.mocha-mode ::selection {
+  background-color: #84cc16;
+  color: #0a0908;
+}
+
+/* Overkast Theme Selection - Dark grey */
+.overkast-mode ::selection {
+  background-color: #5A5A5A;
+  color: #f5f5f5;
+}
+
+/* Gilded Meadow Theme Selection - Sage green */
+.gilded-meadow-mode ::selection {
+  background-color: #85854c;
+  color: #f5f5f0;
+}
+
+[data-theme="dark"] *:focus:not(.neomorphic-toggle):not(.neomorphic-button):not([class*="neomorphic"]):not([class*="neo-"]) {
+  outline: 2px solid var(--tactical-gold) !important;
+  outline-offset: 2px;
+}
+
+/* Enhanced Scrollbar Dark Mode */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 8px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--tactical-grey-800);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--tactical-gold);
+  border-radius: 0;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--tactical-amber);
+}
+
+/* True Night Theme - Monochrome Scrollbars */
+.true-night-mode ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.true-night-mode ::-webkit-scrollbar-track {
+  background: #0d0d0d;
+}
+
+.true-night-mode ::-webkit-scrollbar-thumb {
+  background: #a6a6a6;
+  border-radius: 0;
+}
+
+.true-night-mode ::-webkit-scrollbar-thumb:hover {
+  background: #c2c2c2;
+}
+
+/* Overkast Theme - Monochrome Scrollbars */
+.overkast-mode ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overkast-mode ::-webkit-scrollbar-track {
+  background: #9A9A9A;
+}
+
+.overkast-mode ::-webkit-scrollbar-thumb {
+  background: #5A5A5A;
+  border-radius: 0;
+}
+
+.overkast-mode ::-webkit-scrollbar-thumb:hover {
+  background: #7A7A7A;
+}
+
+/* Mocha Theme - Warm Scrollbars */
+.mocha-mode ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.mocha-mode ::-webkit-scrollbar-track {
+  background: #0a0908;
+}
+
+.mocha-mode ::-webkit-scrollbar-thumb {
+  background: #a8a29e;
+  border-radius: 0;
+}
+
+.mocha-mode ::-webkit-scrollbar-thumb:hover {
+  background: #c4bfbb;
+}
+
+/* Gilded Meadow Theme - Sage Scrollbars */
+.gilded-meadow-mode ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gilded-meadow-mode ::-webkit-scrollbar-track {
+  background: #d0d097;
+}
+
+.gilded-meadow-mode ::-webkit-scrollbar-thumb {
+  background: #abab72;
+  border-radius: 0;
+}
+
+.gilded-meadow-mode ::-webkit-scrollbar-thumb:hover {
+  background: #85854c;
+}
+
+/* Light Theme - Default Scrollbars */
+:root:not(.mocha-mode):not(.overkast-mode):not(.true-night-mode):not(.gilded-meadow-mode) ::-webkit-scrollbar {
+  width: 8px;
+}
+
+:root:not(.mocha-mode):not(.overkast-mode):not(.true-night-mode):not(.gilded-meadow-mode) ::-webkit-scrollbar-track {
+  background: #d1d9e6;
+}
+
+:root:not(.mocha-mode):not(.overkast-mode):not(.true-night-mode):not(.gilded-meadow-mode) ::-webkit-scrollbar-thumb {
+  background: #8992A5;
+  border-radius: 0;
+}
+
+:root:not(.mocha-mode):not(.overkast-mode):not(.true-night-mode):not(.gilded-meadow-mode) ::-webkit-scrollbar-thumb:hover {
+  background: #a8b2c7;
+}
+
+/* Modal Open State - Override sidebar styles for proper greying */
+body.modal-open .bg-hud-background-secondary {
+  background-color: transparent !important;
+}
+
+body.modal-open .border-hud-border {
+  border-color: transparent !important;
+}
+
+/* Message Highlight Animation */
+@keyframes highlightFlash {
+  0% {
+    background-color: var(--tactical-gold-muted);
+    box-shadow: 0 0 20px var(--tactical-gold);
+  }
+  50% {
+    background-color: var(--tactical-gold-light);
+    box-shadow: 0 0 30px var(--tactical-gold);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.highlight-flash {
+  animation: highlightFlash 2s ease-in-out;
+}
+
+/* ============================================
+   WINDOW THEMES - Interface Styling Systems
+   ============================================ */
+
+/* Neomorphic Window Theme - Soft, rounded, shadowed interface */
+.neomorphic-window {
+  --window-border-radius: 12px;
+  --window-shadow-depth: soft;
+}
+
+/* Apply neomorphic styling to all interface elements except header */
+.neomorphic-window .neo-container:not(header),
+.neomorphic-window .neo-card,
+.neomorphic-window .neo-button,
+.neomorphic-window .neo-button-circle,
+.neomorphic-window .neo-button-active,
+.neomorphic-window .neomorphic-input,
+.neomorphic-window button:not(.neomorphic-toggle),
+.neomorphic-window input,
+.neomorphic-window select,
+.neomorphic-window textarea {
+  border-radius: var(--window-border-radius) !important;
+}
+
+/* Preserve toggle specific border-radius */
+.neomorphic-window .neomorphic-toggle {
+  border-radius: 88px !important;
+}
+
+.neomorphic-window .neomorphic-toggle__slider {
+  border-radius: 100px !important;
+}
+
+.neomorphic-window .neomorphic-toggle::before {
+  border-radius: 88px !important;
+}
+
+/* Tactical Window Theme - Sharp, angular, flat interface */
+.tactical-window {
+  --window-border-radius: 0px;
+  --window-shadow-depth: flat;
+}
+
+/* Apply tactical styling (square corners, flat shadows) to all interface elements */
+.tactical-window .neo-container,
+.tactical-window .neo-card,
+.tactical-window .neo-button,
+.tactical-window .neo-button-circle,
+.tactical-window .neo-button-active,
+.tactical-window .neomorphic-input,
+.tactical-window button,
+.tactical-window input,
+.tactical-window select,
+.tactical-window textarea {
+  border-radius: 0 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+.tactical-window .neo-button:hover,
+.tactical-window .neo-button-active:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* ========================================
+   NEOMORPHIC INPUT & SELECT STYLES
+   Recessed appearance for form elements
+   ======================================== */
+
+/* Base neomorphic input style - recessed/inset appearance */
+.neo-input {
+  background: hsl(var(--background));
+  border: none;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-primary);
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  transition: all 0.2s ease;
+  border-radius: var(--radius);
+  /* Inset shadow for recessed appearance */
+  box-shadow:
+    inset 0.15rem 0.15rem 0.3rem rgba(0, 0, 0, 0.2),
+    inset -0.15rem -0.15rem 0.3rem rgba(255, 255, 255, 0.7);
+}
+
+.neo-input:focus {
+  outline: none;
+  /* Slightly deeper inset on focus */
+  box-shadow:
+    inset 0.2rem 0.2rem 0.4rem rgba(0, 0, 0, 0.25),
+    inset -0.2rem -0.2rem 0.4rem rgba(255, 255, 255, 0.6);
+}
+
+.neo-input::placeholder {
+  color: hsl(var(--muted-foreground));
+  opacity: 0.6;
+}
+
+/* Dropdown/Select recessed styling */
+.neo-select,
+select.neo-input {
+  background: hsl(var(--background));
+  border: none;
+  padding: 0.75rem 1rem;
+  padding-right: 2.5rem;
+  font-family: var(--font-primary);
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 12px;
+  border-radius: var(--radius);
+  /* Recessed appearance */
+  box-shadow:
+    inset 0.15rem 0.15rem 0.3rem rgba(0, 0, 0, 0.2),
+    inset -0.15rem -0.15rem 0.3rem rgba(255, 255, 255, 0.7);
+}
+
+.neo-select:focus,
+select.neo-input:focus {
+  outline: none;
+  box-shadow:
+    inset 0.2rem 0.2rem 0.4rem rgba(0, 0, 0, 0.25),
+    inset -0.2rem -0.2rem 0.4rem rgba(255, 255, 255, 0.6);
+}
+
+/* Textarea recessed styling */
+textarea.neo-input {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Dark mode adjustments - deeper shadows */
+.mocha-mode .neo-input,
+.mocha-mode .neo-select,
+.mocha-mode select.neo-input,
+.mocha-mode textarea.neo-input,
+.true-night-mode .neo-input,
+.true-night-mode .neo-select,
+.true-night-mode select.neo-input,
+.true-night-mode textarea.neo-input {
+  box-shadow:
+    inset 0.15rem 0.15rem 0.3rem rgba(0, 0, 0, 0.4),
+    inset -0.15rem -0.15rem 0.3rem rgba(255, 255, 255, 0.05);
+}
+
+.mocha-mode .neo-input:focus,
+.mocha-mode .neo-select:focus,
+.mocha-mode select.neo-input:focus,
+.mocha-mode textarea.neo-input:focus,
+.true-night-mode .neo-input:focus,
+.true-night-mode .neo-select:focus,
+.true-night-mode select.neo-input:focus,
+.true-night-mode textarea.neo-input:focus {
+  box-shadow:
+    inset 0.2rem 0.2rem 0.4rem rgba(0, 0, 0, 0.5),
+    inset -0.2rem -0.2rem 0.4rem rgba(255, 255, 255, 0.03);
+}
+
+/* Update dropdown arrow color for dark mode */
+.mocha-mode .neo-select,
+.mocha-mode select.neo-input,
+.true-night-mode .neo-select,
+.true-night-mode select.neo-input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+}

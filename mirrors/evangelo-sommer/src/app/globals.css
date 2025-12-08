@@ -1,0 +1,828 @@
+/* Neomorphic Design System */
+@import "tailwindcss";
+@import "./tactical.css";
+
+:root {
+  /* Neomorphic color tokens - Light Mode */
+  --background: 220 13% 92%; /* Light gray background (neomorphic-bg) */
+  --foreground: 220 13% 17%; /* Dark text */
+  --card: 220 13% 92%; /* Card background */
+  --card-foreground: 220 13% 17%; /* Card text */
+  --popover: 220 13% 92%; /* Popover background */
+  --popover-foreground: 220 13% 17%; /* Popover text */
+  --primary: 220 15% 55%; /* Neutral blue-grey primary #8992A5 */
+  --primary-foreground: 220 13% 17%; /* Text on primary */
+  --secondary: 220 13% 87%; /* Secondary background */
+  --secondary-foreground: 220 13% 17%; /* Secondary text */
+  --muted: 220 13% 87%; /* Muted background */
+  --muted-foreground: 220 9% 43%; /* Muted text */
+  --accent: 220 15% 55%; /* Neutral blue-grey accent #8992A5 */
+  --accent-foreground: 220 13% 17%; /* Accent text */
+  --destructive: 0 84% 60%; /* Destructive color */
+  --destructive-foreground: 0 0% 98%; /* Text on destructive */
+  --border: 220 13% 83%; /* Border color */
+  --input: 220 13% 92%; /* Input background */
+  --ring: 220 15% 55%; /* Focus ring */
+  --chart-1: 220 15% 55%;
+  --chart-2: 0 84% 60%;
+  --chart-3: 220 9% 43%;
+  --chart-4: 220 15% 55%;
+  --chart-5: 220 13% 87%;
+  --radius: 0.75rem; /* Rounded corners for neomorphic design */
+  --sidebar: 220 13% 92%;
+  --sidebar-foreground: 220 13% 17%;
+  --sidebar-primary: 220 13% 87%;
+  --sidebar-primary-foreground: 220 13% 17%;
+  --sidebar-accent: 220 15% 55%;
+  --sidebar-accent-foreground: 220 13% 17%;
+  --sidebar-border: 220 13% 83%;
+  --sidebar-ring: 220 15% 55%;
+
+  /* Legacy color support - mapped to neomorphic equivalents */
+  --tactical-white: hsl(var(--background));
+  --tactical-gold: hsl(var(--accent));
+  --tactical-gold-light: hsl(var(--accent));
+  --tactical-gold-dark: hsl(var(--accent));
+  --tactical-gold-muted: hsl(var(--accent));
+
+  /* Grey scale mapped to neomorphic */
+  --tactical-grey-900: hsl(var(--foreground));
+  --tactical-grey-800: hsl(var(--foreground));
+  --tactical-grey-700: hsl(var(--foreground));
+  --tactical-grey-600: hsl(var(--muted-foreground));
+  --tactical-grey-500: hsl(var(--muted-foreground));
+  --tactical-grey-400: hsl(var(--muted-foreground));
+  --tactical-grey-300: hsl(var(--border));
+  --tactical-grey-200: hsl(var(--muted));
+  --tactical-grey-100: hsl(var(--background));
+
+  /* Semantic colors */
+  --tactical-success: #10B981;
+  --tactical-warning: #F59E0B;
+  --tactical-error: #EF4444;
+
+  /* HUD colors mapped to neomorphic */
+  --hud-background-primary: hsl(var(--background));
+  --hud-background-secondary: hsl(var(--muted));
+  --hud-text-primary: hsl(var(--foreground));
+  --hud-text-secondary: hsl(var(--muted-foreground));
+  --hud-border: hsl(var(--border));
+  --hud-border-accent: hsl(var(--accent));
+  
+  /* Data Visualization Color Spectrum */
+  --data-red-severe: #8B0000;      /* Dark Red - severe decrease */
+  --data-red-major: #DC143C;       /* Crimson - major decrease */  
+  --data-orange: #FF8C00;          /* Orange - average decrease */
+  --data-yellow: #FFD700;          /* Yellow - mild decrease */
+  --data-green-mild: #32CD32;      /* Lime Green - mild increase */
+  --data-green-good: #00FF7F;      /* Spring Green - good increase */
+  --data-teal: #20B2AA;            /* Teal - solid increase */
+  --data-cyan: #00FFFF;            /* Cyan - strong increase */
+  --data-gold-bright: #FFD700;     /* Bright Gold - excellent increase */
+  --data-violet: #8A2BE2;          /* Violet - outstanding increase */
+  --data-pink: #FF1493;            /* Deep Pink - exceptional increase */
+  --data-crimson: #DC143C;         /* Bright Crimson - most excellent */
+
+  /* Legacy Support */
+  --gold: hsl(var(--accent));
+  --gold-light: hsl(var(--accent));
+  --gold-dark: hsl(var(--accent));
+  --dark-grey: hsl(var(--foreground));
+  --medium-grey: hsl(var(--muted-foreground));
+  --light-grey: hsl(var(--muted));
+  --off-white: hsl(var(--background));
+  --bg-primary: hsl(var(--background));
+  --bg-secondary: hsl(var(--muted));
+  --bg-dark: hsl(var(--foreground));
+  --text-primary: hsl(var(--foreground));
+  --text-secondary: hsl(var(--muted-foreground));
+  --text-light: hsl(var(--background));
+  
+  /* Adobe Fonts Typography System - Brand Guidelines Integration */
+  /* Primary Typefaces from Adobe Fonts */
+  --font-primary: 'ff-utility-web-pro', sans-serif;               /* FF Utility Web Pro - Primary Interface */
+  --font-body: 'ibm-plex-sans', sans-serif;                       /* IBM Plex Sans - Body Text */
+  --font-mono: 'letter-gothic-std', monospace;                    /* Letter Gothic Std - Technical Data */
+  --font-condensed: 'din-2014-narrow', sans-serif;                /* DIN 2014 Narrow - Condensed Elements */
+  --font-display: 'lores-9-wide', sans-serif;                     /* LoRes 9 Wide - Display Headers */
+  --font-accent: 'termina', sans-serif;                           /* Termina - Accent Elements */
+  
+  /* Brand Guidelines Typography Roles */
+  --font-page-title: var(--font-display);                         /* Page Titles - Interpol Sans Bold/Black */
+  --font-section-header: var(--font-display);                     /* Section Headers - Interpol Sans Medium */
+  --font-widget-title: var(--font-display);                       /* Widget Titles - Interpol Sans SemiBold */
+  --font-body-text: var(--font-body);                             /* Body Text - IBM Plex Sans */
+  --font-labels: var(--font-primary);                             /* Labels - FF Utility Web Pro */
+  --font-tooltips: var(--font-body);                              /* Tooltips - IBM Plex Sans */
+  
+  /* HUD Font Assignment Strategy */
+  --font-headings: var(--font-display);                           /* Headers & Display */
+  --font-ui: var(--font-primary);                                 /* UI Elements - FF Utility Web Pro */
+  --font-data: var(--font-mono);                                  /* Technical Data */
+  
+  /* Legacy HUD Support */
+  --font-hud-display: var(--font-display);
+  --font-hud-mono: var(--font-mono);
+  --font-hud-ui: var(--font-primary);
+  
+  /* Legacy Support & Fallbacks */
+  --font-primary-condensed: var(--font-hud-ui);
+  --font-secondary-modern: var(--font-hud-ui);
+  --font-mono-tactical: var(--font-hud-mono);
+  --font-space-grotesk: var(--font-display);           /* Legacy Support - Interpol Sans */
+  --font-jetbrains-mono: var(--font-hud-mono);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-data);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Mocha Theme - Warm Dark (default dark mode) */
+.mocha-mode {
+  /* Mocha Color Theme */
+  --background: 28 25 23; /* Dark warm background (stone-900) */
+  --foreground: 250 250 249; /* Light text (stone-50) */
+  --card: 41 37 36; /* Card background (stone-800) */
+  --card-foreground: 250 250 249; /* Card text */
+  --popover: 28 25 23; /* Popover background */
+  --popover-foreground: 250 250 249; /* Popover text */
+  --primary: 35 22% 66%; /* Warm stone grey primary #a8a29e */
+  --primary-foreground: 28 25 23; /* Text on primary */
+  --secondary: 68 64 60; /* Secondary background (stone-700) */
+  --secondary-foreground: 250 250 249; /* Secondary text */
+  --muted: 68 64 60; /* Muted background (stone-700) */
+  --muted-foreground: 214 211 209; /* Muted text (stone-300) */
+  --accent: 35 22% 66%; /* Warm stone grey accent #a8a29e */
+  --accent-foreground: 28 25 23; /* Accent text */
+  --destructive: 0 84% 60%; /* Destructive color */
+  --destructive-foreground: 250 250 249; /* Text on destructive */
+  --border: 68 64 60; /* Border color (stone-700) */
+  --input: 41 37 36; /* Input background (stone-800) */
+  --ring: 35 22% 66%; /* Focus ring */
+  --chart-1: 35 22% 66%;
+  --chart-2: 0 84% 60%;
+  --chart-3: 214 211 209;
+  --chart-4: 35 22% 66%;
+  --chart-5: 68 64 60;
+  --sidebar: 28 25 23;
+  --sidebar-foreground: 250 250 249;
+  --sidebar-primary: 68 64 60;
+  --sidebar-primary-foreground: 250 250 249;
+  --sidebar-accent: 35 22% 66%;
+  --sidebar-accent-foreground: 28 25 23;
+  --sidebar-border: 68 64 60;
+  --sidebar-ring: 35 22% 66%;
+
+  /* Tactical colors for dark mode */
+  --tactical-grey-900: hsl(28 25 23); /* Match mocha background */
+  --tactical-grey-800: hsl(41 37 36); /* Slightly lighter */
+  --tactical-grey-700: hsl(68 64 60);
+  --tactical-grey-600: hsl(214 211 209);
+  --tactical-gold: hsl(var(--background)); /* Match background for mocha */
+
+  /* Legacy Support - Dark Mode mapped to neomorphic */
+  --hud-background-primary: hsl(var(--background));
+  --hud-background-secondary: hsl(var(--muted));
+  --hud-text-primary: hsl(var(--foreground));
+  --hud-text-secondary: hsl(var(--muted-foreground));
+  --hud-border: hsl(var(--border));
+  --hud-border-accent: hsl(var(--accent));
+  --bg-primary: hsl(var(--background));
+  --bg-secondary: hsl(var(--muted));
+  --text-primary: hsl(var(--foreground));
+  --text-secondary: hsl(var(--muted-foreground));
+}
+
+/* Overkast Theme */
+.overkast-mode {
+  --background: 0 0% 85%; /* Pure neutral grey #D9D9D9 */
+  --foreground: 0 0% 23%; /* #3A3A3A - Dark grey text */
+  --card: 0 0% 88%; /* #E0E0E0 - Lighter grey for cards */
+  --card-foreground: 0 0% 23%;
+  --popover: 0 0% 85%;
+  --popover-foreground: 0 0% 23%;
+  --primary: 0 0% 35%; /* Neutral grey primary #5A5A5A */
+  --primary-foreground: 0 0% 95%;
+  --secondary: 0 0% 84%; /* Lighter grey */
+  --secondary-foreground: 0 0% 23%;
+  --muted: 0 0% 84%;
+  --muted-foreground: 0 0% 35%;
+  --accent: 0 0% 35%; /* Neutral grey accent #5A5A5A */
+  --accent-foreground: 0 0% 95%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 60%; /* #9A9A9A */
+  --input: 0 0% 85%;
+  --ring: 0 0% 35%;
+  --sidebar: 0 0% 85%;
+  --sidebar-foreground: 0 0% 23%;
+
+  /* HUD variables for Overkast */
+  --hud-background-primary: hsl(var(--background));
+  --hud-background-secondary: hsl(var(--muted));
+  --hud-text-primary: hsl(var(--foreground));
+  --hud-text-secondary: hsl(var(--muted-foreground));
+  --hud-border: hsl(var(--border));
+  --hud-border-accent: hsl(var(--accent));
+  --bg-primary: hsl(var(--background));
+  --bg-secondary: hsl(var(--muted));
+  --text-primary: hsl(var(--foreground));
+  --text-secondary: hsl(var(--muted-foreground));
+}
+
+/* True Night Theme - Pure Neutral Dark */
+.true-night-mode {
+  --background: 0 0% 10%; /* Pure dark gray #1a1a1a */
+  --foreground: 0 0% 75%; /* Softer light gray #bfbfbf */
+  --card: 0 0% 14%; /* Card background #242424 */
+  --card-foreground: 0 0% 75%;
+  --popover: 0 0% 10%;
+  --popover-foreground: 0 0% 95%;
+  --primary: 0 0% 65%; /* Neutral grey primary #a6a6a6 */
+  --primary-foreground: 0 0% 10%;
+  --secondary: 0 0% 18%; /* #2e2e2e */
+  --secondary-foreground: 0 0% 95%;
+  --muted: 0 0% 18%;
+  --muted-foreground: 0 0% 65%; /* #a6a6a6 */
+  --accent: 0 0% 65%; /* Neutral grey accent #a6a6a6 */
+  --accent-foreground: 0 0% 10%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 95%;
+  --border: 0 0% 20%; /* #333333 */
+  --input: 0 0% 14%;
+  --ring: 0 0% 65%;
+  --sidebar: 0 0% 10%;
+  --sidebar-foreground: 0 0% 95%;
+
+  /* Tactical colors for true-night mode */
+  --tactical-grey-900: hsl(0 0% 10%); /* Match true-night background */
+  --tactical-grey-800: hsl(0 0% 14%); /* Slightly lighter */
+  --tactical-grey-700: hsl(0 0% 18%);
+  --tactical-grey-600: hsl(0 0% 65%);
+  --tactical-gold: hsl(var(--background)); /* Match background for true-night */
+
+  /* HUD variables for True Night */
+  --hud-background-primary: hsl(var(--background));
+  --hud-background-secondary: hsl(var(--muted));
+  --hud-text-primary: hsl(var(--foreground));
+  --hud-text-secondary: hsl(var(--muted-foreground));
+  --hud-border: hsl(var(--border));
+  --hud-border-accent: hsl(var(--accent));
+  --bg-primary: hsl(var(--background));
+  --bg-secondary: hsl(var(--muted));
+  --text-primary: hsl(var(--foreground));
+  --text-secondary: hsl(var(--muted-foreground));
+}
+
+/* Gilded Meadow Theme - Light Yellow with Dark Grey */
+.gilded-meadow-mode {
+  --background: 60 56% 91%; /* #F5F5DC - Beige/Light Yellow */
+  --foreground: 0 0% 16%; /* #2A2A2A - Very Dark Grey */
+  --card: 48 100% 97%; /* #FFFAED - Very Light Cream */
+  --card-foreground: 0 0% 16%;
+  --popover: 60 56% 91%;
+  --popover-foreground: 0 0% 16%;
+  --primary: 60 25% 55%; /* Green sage primary #abab72 */
+  --primary-foreground: 0 0% 16%;
+  --secondary: 50 44% 88%; /* #F0EAD6 - Eggshell */
+  --secondary-foreground: 0 0% 16%;
+  --muted: 51 38% 85%; /* #E8E4D0 - Light Tan */
+  --muted-foreground: 0 0% 29%; /* #4A4A4A - Medium Dark Grey */
+  --accent: 60 25% 55%; /* Green sage accent #abab72 */
+  --accent-foreground: 0 0% 16%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 42 38% 74%; /* #D4C5A9 - Tan Border */
+  --input: 60 56% 91%;
+  --ring: 60 25% 55%;
+  --sidebar: 60 56% 91%;
+  --sidebar-foreground: 0 0% 16%;
+
+  /* HUD variables for Gilded Meadow */
+  --hud-background-primary: hsl(var(--background));
+  --hud-background-secondary: hsl(var(--muted));
+  --hud-text-primary: hsl(var(--foreground));
+  --hud-text-secondary: hsl(var(--muted-foreground));
+  --hud-border: hsl(var(--border));
+  --hud-border-accent: hsl(var(--accent));
+  --bg-primary: hsl(var(--background));
+  --bg-secondary: hsl(var(--muted));
+  --text-primary: hsl(var(--foreground));
+  --text-secondary: hsl(var(--muted-foreground));
+}
+
+/* Alias for dark mode */
+[data-theme="dark"] {
+  --hud-background-primary: hsl(var(--background));
+  --hud-background-secondary: hsl(var(--muted));
+  --hud-text-primary: hsl(var(--foreground));
+  --hud-text-secondary: hsl(var(--muted-foreground));
+  --hud-border: hsl(var(--border));
+  --hud-border-accent: hsl(var(--accent));
+}
+
+/* Enhanced Base Styling with Typography */
+* {
+  border-color: hsl(var(--border));
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
+
+/* Adobe Fonts CSS Classes - Brand Guidelines */
+.tk-ff-utility-web-pro { font-family: "ff-utility-web-pro", sans-serif; }
+.tk-ibm-plex-sans { font-family: "ibm-plex-sans", sans-serif; }
+.tk-letter-gothic-std { font-family: "letter-gothic-std", monospace; }
+.tk-din-2014-narrow { font-family: "din-2014-narrow", sans-serif; }
+.tk-lores-9-wide { font-family: "lores-9-wide", sans-serif; }
+.tk-termina { font-family: "termina", sans-serif; }
+
+/* Primary Interface Typography - Brand Guidelines */
+.interface-heading { font-family: 'ff-utility-web-pro', sans-serif; }
+.body-text { font-family: 'ibm-plex-sans', sans-serif; }
+.technical-data { font-family: 'letter-gothic-std', monospace; }
+.compact-display { font-family: 'din-2014-narrow', sans-serif; }
+.display-header { font-family: 'lores-9-wide', sans-serif; }
+.accent-text { font-family: 'termina', sans-serif; }
+
+/* HUD Terminology Classes - Tactical Interface */
+.hud-label { 
+  font-family: 'termina', sans-serif; 
+  font-weight: 600; 
+  text-transform: uppercase; 
+  letter-spacing: 0.1em; 
+  color: var(--tactical-gold);
+}
+
+.hud-value { 
+  font-family: 'letter-gothic-std', monospace; 
+  font-weight: 400; 
+  color: var(--hud-text-primary);
+}
+
+.hud-status { 
+  font-family: 'ff-utility-web-pro', sans-serif; 
+  font-weight: 700; 
+  text-transform: uppercase; 
+  letter-spacing: 0.08em;
+}
+
+.hud-command { 
+  font-family: 'termina', sans-serif; 
+  font-weight: 700; 
+  text-transform: uppercase; 
+  letter-spacing: 0.12em;
+  color: var(--tactical-gold);
+}
+
+/* Status Classifications */
+.status-operational { color: var(--tactical-success); }
+.status-standby { color: var(--tactical-warning); }
+.status-critical { color: var(--tactical-error); }
+.status-offline { color: var(--tactical-grey-500); }
+.status-active { color: var(--tactical-gold); }
+.status-pending { color: var(--system-amber); }
+.status-secured { color: var(--tactical-gold-light); }
+
+/* Contact Classifications */
+.priority-target { color: var(--tactical-error); font-weight: 700; }
+.allied-asset { color: var(--tactical-success); }
+.neutral-entity { color: var(--hud-text-secondary); }
+.unknown-status { color: var(--tactical-grey-400); }
+.vip-clearance { color: var(--tactical-gold); font-weight: 700; }
+.field-operative { color: var(--tactical-gold-light); }
+
+/* Tactical design system has been extracted to tactical.css */
+
+/* Theme-Specific Overrides for B.E.C.K.Y. Wordmark */
+.overkast-mode .tk-lores-9-wide,
+.overkast-mode .tk-lores-9-wide *,
+.true-night-mode .tk-lores-9-wide,
+.true-night-mode .tk-lores-9-wide *,
+.mocha-mode .tk-lores-9-wide,
+.mocha-mode .tk-lores-9-wide *,
+[data-theme="dark"] .tk-lores-9-wide,
+[data-theme="dark"] .tk-lores-9-wide * {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* ========================================
+   NEOMORPHIC INPUT STYLES
+   Recessed/inset appearance for form inputs
+   ======================================== */
+
+/* Base neo-inset styling for inputs */
+.neo-inset,
+input.neo-inset,
+textarea.neo-inset,
+select.neo-inset {
+  background-color: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  color: hsl(var(--foreground));
+  /* Inset shadow - creates recessed/indented appearance */
+  box-shadow:
+    inset 2px 2px 4px rgba(0, 0, 0, 0.1),
+    inset -1px -1px 3px rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+}
+
+/* Focus state */
+.neo-inset:focus,
+input.neo-inset:focus,
+textarea.neo-inset:focus,
+select.neo-inset:focus {
+  outline: none;
+  box-shadow:
+    inset 2px 2px 5px rgba(0, 0, 0, 0.15),
+    inset -1px -1px 3px rgba(255, 255, 255, 0.08),
+    0 0 0 2px hsl(var(--ring) / 0.2);
+}
+
+/* Disabled state */
+.neo-inset:disabled,
+input.neo-inset:disabled,
+textarea.neo-inset:disabled,
+select.neo-inset:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: hsl(var(--muted));
+}
+
+/* Dark mode adjustments */
+.dark .neo-inset,
+.dark input.neo-inset,
+.dark textarea.neo-inset,
+.dark select.neo-inset,
+.mocha-mode .neo-inset,
+.mocha-mode input.neo-inset,
+.mocha-mode textarea.neo-inset,
+.mocha-mode select.neo-inset,
+.true-night-mode .neo-inset,
+.true-night-mode input.neo-inset,
+.true-night-mode textarea.neo-inset,
+.true-night-mode select.neo-inset {
+  box-shadow:
+    inset 2px 2px 4px rgba(0, 0, 0, 0.3),
+    inset -1px -1px 3px rgba(255, 255, 255, 0.03);
+}
+
+.dark .neo-inset:focus,
+.dark input.neo-inset:focus,
+.dark textarea.neo-inset:focus,
+.dark select.neo-inset:focus,
+.mocha-mode .neo-inset:focus,
+.mocha-mode input.neo-inset:focus,
+.mocha-mode textarea.neo-inset:focus,
+.mocha-mode select.neo-inset:focus,
+.true-night-mode .neo-inset:focus,
+.true-night-mode input.neo-inset:focus,
+.true-night-mode textarea.neo-inset:focus,
+.true-night-mode select.neo-inset:focus {
+  box-shadow:
+    inset 2px 2px 5px rgba(0, 0, 0, 0.4),
+    inset -1px -1px 3px rgba(255, 255, 255, 0.05),
+    0 0 0 2px hsl(var(--ring) / 0.2);
+}
+
+/* Neo-inset input placeholder styling */
+.neo-inset::placeholder,
+input.neo-inset::placeholder,
+textarea.neo-inset::placeholder,
+select.neo-inset::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 0.5 !important;
+}
+
+/* ========================================
+   NEOMORPHIC CHECKBOX STYLES
+   Custom checkbox design using theme colors
+   Inspired by CodePen neomorphic checkboxes
+   ======================================== */
+
+/* Hide default checkbox */
+input[type="checkbox"].neo-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  display: none;
+}
+
+/* Checkbox wrapper/label */
+.neo-checkbox-wrapper {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Custom checkbox box - UNCHECKED (raised appearance) */
+input[type="checkbox"].neo-checkbox + label,
+label.neo-checkbox-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem !important;
+  box-shadow:
+    -0.2rem -0.2rem 0.5rem rgba(255, 255, 255, 0.7),
+    0.3rem 0.3rem 0.6rem rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* NO checkmark when unchecked - completely hidden */
+input[type="checkbox"].neo-checkbox + label::after,
+label.neo-checkbox-label::after {
+  content: "";
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  background-color: hsl(var(--accent));
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+/* Hover state - subtle effect on box only */
+input[type="checkbox"].neo-checkbox + label:hover,
+label.neo-checkbox-label:hover {
+  box-shadow:
+    -0.25rem -0.25rem 0.6rem rgba(255, 255, 255, 0.8),
+    0.35rem 0.35rem 0.7rem rgba(0, 0, 0, 0.25);
+}
+
+/* CHECKED state - inset/pressed appearance with checkmark */
+input[type="checkbox"].neo-checkbox:checked + label,
+label.neo-checkbox-label.checked {
+  box-shadow:
+    inset 0.2rem 0.2rem 0.5rem rgba(0, 0, 0, 0.2),
+    inset -0.2rem -0.2rem 0.5rem rgba(255, 255, 255, 0.7);
+}
+
+/* Checkmark appears ONLY when checked */
+input[type="checkbox"].neo-checkbox:checked + label::after,
+label.neo-checkbox-label.checked::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Focus state for accessibility */
+input[type="checkbox"].neo-checkbox:focus + label {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Disabled state */
+input[type="checkbox"].neo-checkbox:disabled + label {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input[type="checkbox"].neo-checkbox:disabled + label::after {
+  opacity: 0;
+}
+
+/* ========================================
+   CHECKBOX VARIANTS
+   ======================================== */
+
+/* Small checkbox */
+input[type="checkbox"].neo-checkbox-sm + label,
+label.neo-checkbox-label-sm {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.375rem;
+}
+
+input[type="checkbox"].neo-checkbox-sm + label::after,
+label.neo-checkbox-label-sm::after {
+  font-size: 0.875rem;
+}
+
+/* Large checkbox */
+input[type="checkbox"].neo-checkbox-lg + label,
+label.neo-checkbox-label-lg {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+}
+
+input[type="checkbox"].neo-checkbox-lg + label::after,
+label.neo-checkbox-label-lg::after {
+  font-size: 1.5rem;
+}
+
+/* ========================================
+   RADIO BUTTON STYLES (Neomorphic)
+   ======================================== */
+
+/* Hide default radio */
+input[type="radio"].neo-radio {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  display: none;
+}
+
+/* Custom radio button - UNCHECKED (raised appearance) */
+input[type="radio"].neo-radio + label,
+label.neo-radio-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50% !important;
+  box-shadow:
+    -0.2rem -0.2rem 0.5rem rgba(255, 255, 255, 0.7),
+    0.3rem 0.3rem 0.6rem rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* Radio button inner dot - hidden when unchecked */
+input[type="radio"].neo-radio + label::after,
+label.neo-radio-label::after {
+  content: "";
+  position: absolute;
+  width: 0.875rem;
+  height: 0.875rem;
+  background: hsl(var(--accent));
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  opacity: 0;
+  transform: scale(0);
+  pointer-events: none;
+}
+
+/* Hover state - subtle effect on box only */
+input[type="radio"].neo-radio + label:hover,
+label.neo-radio-label:hover {
+  box-shadow:
+    -0.25rem -0.25rem 0.6rem rgba(255, 255, 255, 0.8),
+    0.35rem 0.35rem 0.7rem rgba(0, 0, 0, 0.25);
+}
+
+/* CHECKED state - inset/pressed appearance with dot */
+input[type="radio"].neo-radio:checked + label,
+label.neo-radio-label.checked {
+  box-shadow:
+    inset 0.2rem 0.2rem 0.5rem rgba(0, 0, 0, 0.2),
+    inset -0.2rem -0.2rem 0.5rem rgba(255, 255, 255, 0.7);
+}
+
+/* Inner dot appears ONLY when checked */
+input[type="radio"].neo-radio:checked + label::after,
+label.neo-radio-label.checked::after {
+  background: hsl(var(--accent));
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Focus state for accessibility */
+input[type="radio"].neo-radio:focus + label {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Disabled state */
+input[type="radio"].neo-radio:disabled + label {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input[type="radio"].neo-radio:disabled + label::after {
+  opacity: 0;
+}
+
+/* ========================================
+   DARK MODE ADJUSTMENTS
+   ======================================== */
+
+/* Dark mode checkbox adjustments - reduce highlight brightness */
+.mocha-mode input[type="checkbox"].neo-checkbox + label,
+.mocha-mode label.neo-checkbox-label,
+.true-night-mode input[type="checkbox"].neo-checkbox + label,
+.true-night-mode label.neo-checkbox-label {
+  box-shadow:
+    -0.2rem -0.2rem 0.5rem rgba(255, 255, 255, 0.05),
+    0.3rem 0.3rem 0.6rem rgba(0, 0, 0, 0.4);
+}
+
+.mocha-mode input[type="checkbox"].neo-checkbox + label:hover,
+.mocha-mode label.neo-checkbox-label:hover,
+.true-night-mode input[type="checkbox"].neo-checkbox + label:hover,
+.true-night-mode label.neo-checkbox-label:hover {
+  box-shadow:
+    -0.25rem -0.25rem 0.6rem rgba(255, 255, 255, 0.07),
+    0.35rem 0.35rem 0.7rem rgba(0, 0, 0, 0.45);
+}
+
+.mocha-mode input[type="checkbox"].neo-checkbox:checked + label,
+.mocha-mode label.neo-checkbox-label.checked,
+.true-night-mode input[type="checkbox"].neo-checkbox:checked + label,
+.true-night-mode label.neo-checkbox-label.checked {
+  box-shadow:
+    inset 0.2rem 0.2rem 0.5rem rgba(0, 0, 0, 0.4),
+    inset -0.2rem -0.2rem 0.5rem rgba(255, 255, 255, 0.05);
+}
+
+/* Dark mode radio button adjustments - reduce highlight brightness */
+.mocha-mode input[type="radio"].neo-radio + label,
+.mocha-mode label.neo-radio-label,
+.true-night-mode input[type="radio"].neo-radio + label,
+.true-night-mode label.neo-radio-label {
+  box-shadow:
+    -0.2rem -0.2rem 0.5rem rgba(255, 255, 255, 0.05),
+    0.3rem 0.3rem 0.6rem rgba(0, 0, 0, 0.4);
+}
+
+.mocha-mode input[type="radio"].neo-radio + label:hover,
+.mocha-mode label.neo-radio-label:hover,
+.true-night-mode input[type="radio"].neo-radio + label:hover,
+.true-night-mode label.neo-radio-label:hover {
+  box-shadow:
+    -0.25rem -0.25rem 0.6rem rgba(255, 255, 255, 0.07),
+    0.35rem 0.35rem 0.7rem rgba(0, 0, 0, 0.45);
+}
+
+.mocha-mode input[type="radio"].neo-radio:checked + label,
+.mocha-mode label.neo-radio-label.checked,
+.true-night-mode input[type="radio"].neo-radio:checked + label,
+.true-night-mode label.neo-radio-label.checked {
+  box-shadow:
+    inset 0.2rem 0.2rem 0.5rem rgba(0, 0, 0, 0.4),
+    inset -0.2rem -0.2rem 0.5rem rgba(255, 255, 255, 0.05);
+}

@@ -1,31 +1,32 @@
-import React from 'react';
-import { StatusBar } from 'expo-status-bar';
-import {
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  Modal,
-  Pressable,
-} from 'react-native';
-import { MaterialIcons, Feather } from '@expo/vector-icons';
-import ClientPage from './components/ClientPage';
-import AccountSettingsPanel from './components/AccountSettingsPanel';
-import ActivityLogPanel from './components/ActivityLogPanel';
-import PreferencesPanel from './components/PreferencesPanel';
-import SidebarPanel from './components/SidebarPanel';
-import NotificationsModalPanel from './components/NotificationsModalPanel';
+import React, { useEffect, useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, Modal, Pressable, ActivityIndicator, Animated } from "react-native";
+import AccountSettingsPanel from "./components/AccountSettingsPanel";
+import ActivityLogPanel from "./components/ActivityLogPanel";
+import PreferencesPanel from "./components/PreferencesPanel";
+import SidebarPanel from "./components/SidebarPanel";
+import NotificationsModalPanel from "./components/NotificationsModalPanel";
 import UserAvatarDropdownPanel from "./components/UserAvatarDropdownPanel";
 import DashboardScreen from "./components/screens/DashboardScreen";
 import ClientsScreen from "./components/screens/ClientsScreen";
+import ClientDetailScreen from "./components/screens/ClientDetailScreen";
 import ConversationsScreen from "./components/screens/ConversationsScreen";
+import ConversationDetailScreen from "./components/screens/ConversationDetailScreen";
+import MasterTimelineDetailScreen from "./components/screens/MasterTimelineDetailScreen";
+import SmsMessagesScreen from "./components/screens/SmsMessagesScreen";
 import TestimonialsScreen from "./components/screens/TestimonialsScreen";
 import BillingScreen from "./components/screens/BillingScreen";
 import TimeManagerScreen from "./components/screens/TimeManagerScreen";
 import GoalsScreen from "./components/screens/GoalsScreen";
 import ServiceLinesScreen from "./components/screens/ServiceLinesScreen";
-import { useFonts, SpaceGrotesk_600SemiBold } from '@expo-google-fonts/space-grotesk';
+import ContactsListScreen from "./components/screens/ContactsListScreen";
+import { useFonts } from "expo-font";
+import { Ionicons } from "@expo/vector-icons";
+import NeomorphicCard from "./components/NeomorphicCard";
+import { ThemeProvider, ThemeTokens, useTheme } from "./theme/ThemeContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import LoginScreen from "./screens/LoginScreen";
+import * as NavigationBar from "expo-navigation-bar";
 
 type PageKey =
   | "Dashboard"
@@ -60,8 +61,111 @@ const activityLog = [
 ];
 
 export default function App() {
+  console.log('[App] ===== APP COMPONENT RENDERING =====');
+
+  try {
+    return (
+      <ThemeProvider>
+        <AuthProvider>
+          <AuthGate />
+        </AuthProvider>
+      </ThemeProvider>
+    );
+  } catch (error) {
+    console.error('[App] Error rendering app:', error);
+    return (
+      <View style={{ flex: 1, backgroundColor: '#ff0000', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: '#ffffff' }}>Error: {String(error)}</Text>
+      </View>
+    );
+  }
+}
+
+/**
+ * AuthGate: Shows LoginScreen, success animation, or main app
+ */
+function AuthGate() {
+  console.log('[AuthGate] Component rendering');
+  const { isAuthenticated, loading, checkAuth } = useAuth();
+  const { tokens } = useTheme();
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [fadeAnim] = useState(() => new Animated.Value(0));
+
+  console.log('[AuthGate] Auth state:', { isAuthenticated, loading, showSuccess });
+
+  // Handle success animation transition
+  useEffect(() => {
+    if (showSuccess) {
+      // Fade in the checkmark
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        // After showing checkmark, fade out and proceed to app
+        setTimeout(() => {
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }).start(() => {
+            setShowSuccess(false);
+          });
+        }, 800);
+      });
+    }
+  }, [showSuccess, fadeAnim]);
+
+  // Show loading spinner while checking stored auth
+  if (loading) {
+    console.log('[AuthGate] Showing loading spinner');
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: tokens.background }}>
+        <ActivityIndicator size="large" color={tokens.accent} />
+        <Text style={{ marginTop: 16, color: tokens.textSecondary, fontSize: 14 }}>
+          Loading...
+        </Text>
+      </View>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    console.log('[AuthGate] Not authenticated, showing LoginScreen');
+    return <LoginScreen onLoginSuccess={async () => {
+      console.log('[AuthGate] Login success, showing success animation...');
+      setShowSuccess(true);
+      await checkAuth();
+      console.log('[AuthGate] Auth checked');
+    }} />;
+  }
+
+  // Show success checkmark animation briefly after login
+  if (showSuccess) {
+    console.log('[AuthGate] Showing success animation');
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: tokens.background }}>
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <Ionicons name="checkmark-circle" size={72} color={tokens.accent} />
+        </Animated.View>
+      </View>
+    );
+  }
+
+  // Show the full app
+  console.log('[AuthGate] Authenticated, showing ThemedApp');
+  return <ThemedApp />;
+}
+
+function ThemedApp() {
+  console.log('[ThemedApp] Component rendering');
+  const { logout, user } = useAuth();
   const [fontsLoaded] = useFonts({
-    'lores-9-wide': SpaceGrotesk_600SemiBold,
+    PressStart2P: require("./assets/fonts/Press_Start_2P/PressStart2P-Regular.ttf"),
+    "Bytesized-Regular": require("./assets/fonts/Bytesized/Bytesized-Regular.ttf"),
+    "Tiny5-Regular": require("./assets/fonts/Tiny5/Tiny5-Regular.ttf"),
+    // Temporarily using Tiny5 for lores-9-wide until SpaceGrotesk issue is resolved
+    "lores-9-wide": require("./assets/fonts/Tiny5/Tiny5-Regular.ttf"),
   });
   const [menuVisible, setMenuVisible] = React.useState(false);
   const [notificationsVisible, setNotificationsVisible] = React.useState(false);
@@ -69,11 +173,40 @@ export default function App() {
   const [settingsVisible, setSettingsVisible] = React.useState(false);
   const [preferencesVisible, setPreferencesVisible] = React.useState(false);
   const [accountDropdownVisible, setAccountDropdownVisible] = React.useState(false);
-  const [currentPage, setCurrentPage] = React.useState<PageKey>('Dashboard');
+  const [currentPage, setCurrentPage] = React.useState<PageKey>("Dashboard");
+  const [selectedClientId, setSelectedClientId] = React.useState<string | null>(null);
+  const [showContactsList, setShowContactsList] = React.useState(false);
+  const [showSmsMessages, setShowSmsMessages] = React.useState(false);
+  const [selectedConversationId, setSelectedConversationId] = React.useState<string | null>(null);
+  const [selectedMasterClientId, setSelectedMasterClientId] = React.useState<string | null>(null);
+  const { tokens, windowTheme } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
+  console.log('[ThemedApp] Fonts loaded:', fontsLoaded);
+
+  useEffect(() => {
+    const darkMode = windowTheme === "tactical";
+    const barColor = darkMode ? "#05060c" : "transparent";
+    const buttonStyle = darkMode ? "light" : "dark";
+
+    const syncNavBar = async () => {
+      try {
+        await NavigationBar.setBackgroundColorAsync(barColor, true);
+        await NavigationBar.setButtonStyleAsync(buttonStyle);
+      } catch (error) {
+        console.warn("[NavigationBar] failed to set color", error);
+      }
+    };
+
+    syncNavBar();
+  }, [windowTheme]);
 
   if (!fontsLoaded) {
+    console.log('[ThemedApp] Waiting for fonts to load...');
     return null;
   }
+
+  console.log('[ThemedApp] Fonts loaded, rendering UI');
 
   const closeAll = () => {
     setMenuVisible(false);
@@ -87,17 +220,109 @@ export default function App() {
 
   const handlePageSelect = (page: PageKey) => {
     setCurrentPage(page);
+    setSelectedClientId(null); // Clear client selection when changing pages
+    setShowContactsList(false);
+    setShowSmsMessages(false);
+    setSelectedConversationId(null);
+    setSelectedMasterClientId(null);
     closeAll();
   };
 
+  const handleViewClientDetail = (clientId: string) => {
+    setSelectedClientId(clientId);
+    setCurrentPage("Clients");
+    closeAll();
+  };
+
+  const handleBackFromClientDetail = () => {
+    setSelectedClientId(null);
+  };
+
   const renderPage = () => {
+    // Show contacts list screen
+    if (showContactsList) {
+      return (
+        <ContactsListScreen
+          onBack={() => setShowContactsList(false)}
+          onBatchAction={(selectedIds) => {
+            console.log('[ThemedApp] Batch action with:', selectedIds.length, 'contacts');
+            // TODO: Implement batch create clients
+          }}
+        />
+      );
+    }
+
+    // Show SMS messages screen
+    if (showSmsMessages) {
+      return (
+        <SmsMessagesScreen
+          onBack={() => setShowSmsMessages(false)}
+          onSelectThread={(threadId) => {
+            console.log('[ThemedApp] Selected SMS thread:', threadId);
+            // TODO: Navigate to thread detail view
+          }}
+        />
+      );
+    }
+
+    // Show conversation detail screen
+    if (selectedConversationId) {
+      return (
+        <ConversationDetailScreen
+          conversationId={selectedConversationId}
+          onBack={() => setSelectedConversationId(null)}
+        />
+      );
+    }
+
+    // Show master timeline detail screen
+    if (selectedMasterClientId) {
+      return (
+        <MasterTimelineDetailScreen
+          clientId={selectedMasterClientId}
+          onBack={() => setSelectedMasterClientId(null)}
+          onConversationSelect={(convId) => {
+            setSelectedMasterClientId(null);
+            setSelectedConversationId(convId);
+          }}
+        />
+      );
+    }
+
+    // Show client detail screen if a client is selected
+    if (selectedClientId) {
+      return (
+        <ClientDetailScreen
+          clientId={selectedClientId}
+          onBack={handleBackFromClientDetail}
+        />
+      );
+    }
+
     switch (currentPage) {
       case "Dashboard":
-        return <DashboardScreen onOpenPreferences={() => setPreferencesVisible(true)} />;
+        return (
+          <DashboardScreen
+            onOpenPreferences={() => setPreferencesVisible(true)}
+            onNavigateToClients={() => handlePageSelect("Clients")}
+            onViewClientDetail={handleViewClientDetail}
+          />
+        );
       case "Clients":
-        return <ClientsScreen />;
+        return (
+          <ClientsScreen
+            onViewClientDetail={handleViewClientDetail}
+            onViewContacts={() => setShowContactsList(true)}
+          />
+        );
       case "Conversations":
-        return <ConversationsScreen />;
+        return (
+          <ConversationsScreen
+            onViewSmsMessages={() => setShowSmsMessages(true)}
+            onViewConversation={(convId) => setSelectedConversationId(convId)}
+            onViewMasterTimeline={(clientId) => setSelectedMasterClientId(clientId)}
+          />
+        );
       case "Testimonials":
         return <TestimonialsScreen />;
       case "Billing":
@@ -109,7 +334,12 @@ export default function App() {
       case "Service Lines":
         return <ServiceLinesScreen />;
       default:
-        return <DashboardScreen onOpenPreferences={() => setPreferencesVisible(true)} />;
+        return (
+          <DashboardScreen
+            onOpenPreferences={() => setPreferencesVisible(true)}
+            onNavigateToClients={() => handlePageSelect("Clients")}
+          />
+        );
     }
   };
 
@@ -119,43 +349,46 @@ export default function App() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.menuButton}
-          onPress={() => setMenuVisible(true)}
+          onPress={() => {
+            closeAll();
+            setMenuVisible(true);
+          }}
         >
-          <MaterialIcons name="menu" size={22} color="#bac6ff" />
+          <Ionicons name="menu" size={18} color={tokens.accent} />
         </TouchableOpacity>
-        <View>
-          <Text style={styles.title}>B.E.C.K.Y. CRM</Text>
-          <Text style={styles.subtitle}>
-            Mobile mirror of the web dashboard with neomorphic polish
-          </Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>B.E.C.K.Y.</Text>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => setNotificationsVisible(true)}
           >
-            <Feather name="bell" size={20} color="#c4cff6" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => setAccountDropdownVisible(!accountDropdownVisible)}
-          >
-            <Feather name="user" size={18} color="#c4cff6" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => setActivityVisible(true)}
-          >
-            <MaterialIcons name="timeline" size={20} color="#c4cff6" />
+            <Ionicons name="notifications" size={16} color={tokens.accent} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.avatar}
-            onPress={() => setSettingsVisible(true)}
+            onPress={() => setAccountDropdownVisible(!accountDropdownVisible)}
           >
-            <Text style={styles.avatarText}>ES</Text>
+            <Text style={styles.avatarText}>
+              {user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'ES'}
+            </Text>
           </TouchableOpacity>
         </View>
-        {accountDropdownVisible && (
+      </View>
+
+      <Modal transparent visible={accountDropdownVisible} animationType="none">
+        <View style={styles.dropdownLayer}>
+          <Pressable
+            style={[
+              styles.dropdownBackdrop,
+              {
+                backgroundColor:
+                  windowTheme === "tactical" ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.35)",
+              },
+            ]}
+            onPress={closeAll}
+          />
           <UserAvatarDropdownPanel
             onAccountSettings={() => {
               setAccountDropdownVisible(false);
@@ -165,191 +398,221 @@ export default function App() {
               setAccountDropdownVisible(false);
               setPreferencesVisible(true);
             }}
-            onSignOut={() => {
+            onActivityLog={() => {
               setAccountDropdownVisible(false);
+              setActivityVisible(true);
+            }}
+            onSignOut={async () => {
+              setAccountDropdownVisible(false);
+              await logout();
             }}
           />
-        )}
-      </View>
+        </View>
+      </Modal>
 
       {renderPage()}
 
       <Modal transparent visible={menuVisible} animationType="fade">
-        <Pressable style={styles.modalBackdrop} onPress={closeAll} />
-        <View style={styles.modalContent}>
-          <SidebarPanel onSelect={(tab) => handlePageSelect(tab as PageKey)} />
+        <Pressable style={[styles.modalBackdrop, { backgroundColor: windowTheme === "tactical" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.4)" }]} onPress={closeAll} />
+        <View style={styles.menuWrapper}>
+          <NeomorphicCard
+            style={[styles.modalCard, styles.menuModalCard]}
+            contentStyle={styles.modalContent}
+            darkOffset={[18, 6]}
+            lightOffset={[-3, -3]}
+            darkDistance={12}
+            lightDistance={10}
+          >
+            <SidebarPanel
+              onSelect={(tab) => handlePageSelect(tab as PageKey)}
+              onClose={() => setMenuVisible(false)}
+            />
+          </NeomorphicCard>
         </View>
       </Modal>
 
       <Modal transparent visible={notificationsVisible} animationType="slide">
-        <Pressable style={styles.modalBackdrop} onPress={closeAll} />
-        <View style={styles.notificationsModal}>
+        <Pressable style={[styles.modalBackdrop, { backgroundColor: windowTheme === "tactical" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.4)" }]} onPress={closeAll} />
+        <NeomorphicCard style={styles.modalCard} contentStyle={styles.notificationsModal}>
           <NotificationsModalPanel />
-        </View>
+        </NeomorphicCard>
       </Modal>
 
       <Modal transparent visible={activityVisible} animationType="slide">
-        <Pressable style={styles.modalBackdrop} onPress={closeAll} />
-        <View style={styles.activityModal}>
+        <Pressable style={[styles.modalBackdrop, { backgroundColor: windowTheme === "tactical" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.4)" }]} onPress={closeAll} />
+        <NeomorphicCard style={styles.modalCard} contentStyle={styles.activityModal}>
           <ActivityLogPanel />
-        </View>
+        </NeomorphicCard>
       </Modal>
 
       <Modal transparent visible={settingsVisible} animationType="slide">
-        <Pressable style={styles.modalBackdrop} onPress={closeAll} />
-        <View style={styles.accountModal}>
-          <AccountSettingsPanel
-            onClose={() => {
-              setSettingsVisible(false);
-              setPreferencesVisible(false);
-            }}
-          />
+        <Pressable style={[styles.modalBackdrop, { backgroundColor: windowTheme === "tactical" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.4)" }]} onPress={closeAll} />
+        <View style={styles.accountModalLayer}>
+          <NeomorphicCard style={[styles.modalCard, styles.accountModalCard]} contentStyle={styles.accountModal}>
+            <AccountSettingsPanel
+              onClose={() => {
+                setSettingsVisible(false);
+                setPreferencesVisible(false);
+              }}
+            />
+          </NeomorphicCard>
         </View>
       </Modal>
 
       <Modal transparent visible={preferencesVisible} animationType="slide">
-        <Pressable style={styles.modalBackdrop} onPress={closeAll} />
-        <View style={styles.preferencesModal}>
+        <Pressable style={[styles.modalBackdrop, { backgroundColor: windowTheme === "tactical" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.4)" }]} onPress={closeAll} />
+        <NeomorphicCard style={styles.modalCard} contentStyle={styles.preferencesModal}>
           <PreferencesPanel onClose={closeAll} />
-        </View>
+        </NeomorphicCard>
       </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
   safeArea: {
-    flex: 1,
-    backgroundColor: '#020412',
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    position: 'relative',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#f5f6ff',
-    fontFamily: 'lores-9-wide',
-  },
-  subtitle: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#9cb3ff',
-    maxWidth: '80%',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  menuButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    backgroundColor: '#111720',
-    borderWidth: 1,
-    borderColor: '#1f2435',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#111720',
-    borderWidth: 1,
-    borderColor: '#1b1f30',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 6,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1b1f30',
-    backgroundColor: '#2a2f44',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 6,
-  },
-  avatarText: {
-    color: '#f4f6ff',
-    fontWeight: '700',
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-  },
-  modalContent: {
-    marginHorizontal: 28,
-    marginTop: 120,
-    backgroundColor: '#0d111f',
-    borderRadius: 28,
-    padding: 20,
-    borderColor: '#1f2435',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 25,
-    elevation: 10,
-  },
-  modalTitle: {
-    color: '#f8fbff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  modalItem: {
-    color: '#c7d1ef',
-    fontSize: 14,
-    paddingVertical: 8,
-  },
-  modalButton: {
-    marginTop: 16,
-    backgroundColor: '#5c93ff',
-    borderRadius: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    color: '#0f1622',
-    fontWeight: '600',
-  },
-  accountModal: {
-    marginHorizontal: 18,
-    marginTop: 110,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#1f2335',
-  },
-  activityModal: {
-    marginHorizontal: 18,
-    marginTop: 110,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#1f2335',
-  },
-  preferencesModal: {
-    marginHorizontal: 18,
-    marginTop: 112,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  notificationsModal: {
-    marginHorizontal: 18,
-    marginTop: 110,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-});
+      flex: 1,
+      backgroundColor: tokens.background,
+      position: "relative",
+    },
+    header: {
+      paddingHorizontal: 24,
+      paddingTop: 32,
+      paddingBottom: 14,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      position: "relative",
+      backgroundColor: tokens.background,
+    },
+    title: {
+      fontSize: 16,
+      color: tokens.textPrimary,
+      fontFamily: "PressStart2P",
+      letterSpacing: 0,
+      lineHeight: 18,
+    },
+    titleContainer: {
+      flex: 1,
+      marginRight: 12,
+    },
+    headerActions: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    menuButton: {
+      width: 34,
+      height: 34,
+      borderRadius: 12,
+      backgroundColor: tokens.surface,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+    },
+    iconButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: tokens.surface,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      justifyContent: "center",
+      alignItems: "center",
+      marginLeft: 6,
+    },
+    avatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tokens.accent,
+      backgroundColor: tokens.surface,
+      shadowColor: tokens.shadowDark,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.45,
+      shadowRadius: 8,
+      elevation: 6,
+      justifyContent: "center",
+      alignItems: "center",
+      marginLeft: 6,
+    },
+    avatarText: {
+      color: tokens.textPrimary,
+      fontWeight: "700",
+    },
+    modalBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    menuModalBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    modalCard: {
+      marginHorizontal: 18,
+      marginTop: 110,
+      borderRadius: 24,
+    },
+    menuModalCard: {
+      marginTop: 4,
+      marginLeft: 16,
+    },
+    menuWrapper: {
+      marginTop: 66,
+      marginLeft: 14,
+    },
+    accountModalCard: {
+      marginTop: 0,
+    },
+    accountModalLayer: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 18,
+    },
+    modalContent: {
+      padding: 20,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: tokens.border,
+    },
+    accountModal: {
+      padding: 0,
+      borderRadius: 20,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: tokens.border,
+    },
+    activityModal: {
+      padding: 0,
+      borderRadius: 20,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: tokens.border,
+    },
+    preferencesModal: {
+      padding: 0,
+      borderRadius: 24,
+      overflow: "hidden",
+    },
+    notificationsModal: {
+      padding: 0,
+      borderRadius: 24,
+      overflow: "hidden",
+    },
+    dropdownBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 45,
+      elevation: 20,
+    },
+    dropdownLayer: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 60,
+      elevation: 45,
+      justifyContent: "flex-start",
+      alignItems: "flex-end",
+      paddingTop: 70,
+      paddingRight: 24,
+    },
+  });

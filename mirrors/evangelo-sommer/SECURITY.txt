@@ -1,0 +1,524 @@
+SECURITY AUDIT REPORT - evangelosommer.com
+Date: 2025-10-25
+Auditor: Evangelo Sommer
+
+================================================================================
+CRITICAL FIXES IMPLEMENTED
+================================================================================
+
+1. AUTHENTICATION MIDDLEWARE (src/middleware.ts)
+   - All API routes now require authentication
+   - JWT token validation on every request
+   - Role-based access control (SUPER_ADMIN required)
+   - Returns 401 for missing auth, 403 for insufficient permissions
+
+2. BCRYPT PASSWORD HASHING (src/lib/auth.ts, src/lib/auth-security.ts)
+   - Replaced plaintext password comparison with bcrypt
+   - Salt rounds: 12 (industry standard)
+   - Removed development authentication bypass
+   - Added password hashing utility: scripts/hash-password.js
+
+3. SECURE TLS CONFIGURATION
+   - Fixed email route TLS: rejectUnauthorized = true
+   - Minimum TLS version: 1.2
+   - Prevents man-in-the-middle attacks
+
+4. RATE LIMITING (src/middleware.ts)
+   - API routes: 100 requests per 15 minutes
+   - Login routes: 5 attempts per 15 minutes
+   - IP-based tracking
+   - Returns 429 Too Many Requests with Retry-After header
+
+5. SECURITY HEADERS (next.config.ts)
+   - Strict-Transport-Security: max-age=63072000
+   - X-Frame-Options: SAMEORIGIN
+   - X-Content-Type-Options: nosniff
+   - X-XSS-Protection: 1; mode=block
+   - Referrer-Policy: strict-origin-when-cross-origin
+   - Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+6. INPUT VALIDATION (src/lib/validation.ts)
+   - Zod schemas for API validation
+   - Email, phone, URL format validation
+   - Length limits on all text fields
+   - XSS prevention via strict validation
+
+7. CSRF PROTECTION (src/lib/csrf.ts)
+   - OAuth state parameter verification
+   - Signed state tokens with HMAC-SHA256
+   - Time-based expiry (10 minutes)
+   - Session binding for enhanced security
+
+8. ERROR MESSAGE SANITIZATION
+   - Production: Generic error messages only
+   - Development: Detailed errors for debugging
+   - Prevents information disclosure
+
+================================================================================
+KNOWN SECURITY ISSUES
+================================================================================
+
+✅ FIXED ISSUES:
+
+1. OAUTH TOKEN EXPOSURE IN URL - **FIXED**
+   Status: RESOLVED ✅
+   Implementation:
+     ✅ Created CalendarIntegration database table with encryption support
+     ✅ Implemented AES-256-GCM encryption for OAuth tokens (src/lib/encryption.ts)
+     ✅ Updated OAuth callback to store encrypted tokens in database
+     ✅ Only integration ID passed in URL (safe)
+     ✅ Created authenticated API endpoints for integration management:
+        - GET /api/calendar/integrations - List user's integrations
+        - GET /api/calendar/integrations/[id] - Get integration details
+        - DELETE /api/calendar/integrations/[id] - Revoke integration
+     ✅ Tokens NEVER sent to frontend - stay encrypted in database
+
+HIGH PRIORITY - FIX BEFORE PRODUCTION:
+
+1. DEPENDENCY VULNERABILITIES
+   Issue: 3 npm vulnerabilities detected
+   Details:
+     - quill <=1.3.7: XSS vulnerability (moderate)
+       Used by: react-quill
+       Fix: npm audit fix --force (breaking change)
+
+     - xlsx: Prototype Pollution (high)
+       No fix available
+       Impact: Potential RCE if user-uploaded Excel files are processed
+
+     - xlsx: ReDoS vulnerability (moderate)
+       No fix available
+       Impact: Denial of service via crafted Excel files
+
+   Recommendations:
+     - Update react-quill or find alternative editor
+     - Replace xlsx with safer alternative (e.g., exceljs)
+     - If xlsx required, implement strict file validation
+     - Run xlsx processing in isolated sandbox
+
+MEDIUM PRIORITY:
+
+2. INCOMPLETE INPUT VALIDATION
+   Location: src/app/api/clients/route.ts
+   Issue: Many client fields not validated by Zod schema
+   Impact: Fields like tags, metadata, billingInfo accept unvalidated input
+   Fix: Extend createClientSchema to include all fields
+
+3. IN-MEMORY RATE LIMITING
+   Location: src/middleware.ts
+   Issue: Rate limit store resets on server restart
+   Impact: Not suitable for distributed deployments
+   Fix: Use Redis or database-backed rate limiting in production
+
+4. IN-MEMORY CSRF STORAGE
+   Location: src/lib/csrf.ts
+   Issue: CSRF tokens stored in memory
+   Impact: Tokens lost on server restart, not suitable for multi-instance
+   Fix: Use Redis or encrypted database storage
+
+5. NO REQUEST LOGGING
+   Issue: No audit trail of API requests
+   Impact: Difficult to investigate security incidents
+   Fix: Implement secure logging (exclude PII)
+
+================================================================================
+DEPLOYMENT CHECKLIST
+================================================================================
+
+BEFORE PRODUCTION DEPLOYMENT:
+
+[√] Generate password hash: node scripts/hash-password.js
+[√] Add ADMIN_PASSWORD_HASH to .env.local
+[√] Fix OAuth token handling (database storage with encryption)
+[ ] Add ADMIN_PASSWORD_HASH to Vercel environment variables
+[ ] Add CSRF_SECRET to environment variables
+[ ] Add ENCRYPTION_SECRET to environment variables (for OAuth token encryption)
+[ ] Run database migration in production: npx prisma migrate deploy
+[ ] Test authentication flow
+[ ] Test rate limiting (attempt 6+ logins)
+[ ] Test OAuth flow with encrypted token storage
+[ ] Verify security headers (curl -I your-domain.com)
+[ ] Address npm audit vulnerabilities
+[ ] Enable Redis for rate limiting (production)
+[ ] Enable Redis for CSRF storage (production)
+[ ] Set up monitoring and alerting
+[ ] Review all API routes have authentication
+[ ] Penetration testing
+[ ] Security code review
+
+================================================================================
+HOW TO ACQUIRE ENVIRONMENT VARIABLES - COMPLETE GUIDE
+================================================================================
+
+1. CRYPTOGRAPHIC SECRETS (Generate Locally)
+   =========================================
+
+   Run these commands in your terminal to generate secure random secrets:
+
+   NEXTAUTH_SECRET:
+   ----------------
+   Command: openssl rand -base64 32
+
+   Copy the output (example: wX9kL2m5N8p0Q3r6T9v1Y4z7A0c3E6h9)
+   Use as: NEXTAUTH_SECRET=wX9kL2m5N8p0Q3r6T9v1Y4z7A0c3E6h9
+   Purpose: Encrypts NextAuth.js session tokens
+
+   ENCRYPTION_SECRET:
+   ------------------
+   Command: openssl rand -base64 32
+
+   Copy the output (example: B5d8G1j4M7p0S3v6Y9b2E5h8K1n4Q7t0)
+   Use as: ENCRYPTION_SECRET=B5d8G1j4M7p0S3v6Y9b2E5h8K1n4Q7t0
+   Purpose: Encrypts OAuth tokens in database (AES-256-GCM)
+
+   CSRF_SECRET:
+   ------------
+   Command: openssl rand -base64 32
+
+   Copy the output (example: C6e9H2k5N8q1T4w7Z0c3F6i9L2o5R8u1)
+   Use as: CSRF_SECRET=C6e9H2k5N8q1T4w7Z0c3F6i9L2o5R8u1
+   Purpose: Signs CSRF tokens for OAuth flows
+
+   ⚠️  CRITICAL: Generate a DIFFERENT value for each secret. Never reuse!
+   ⚠️  NEVER commit these secrets to git or share them publicly
+
+2. ADMIN PASSWORD HASH
+   ====================
+
+   Step 1: Run the password hashing script
+   ----------------------------------------
+   Command: node scripts/hash-password.js
+
+   Step 2: Enter your password when prompted
+   ------------------------------------------
+   Example prompt: "Enter the password to hash: "
+   Type your desired admin password (min 12 characters recommended)
+
+   Step 3: Copy the output hash
+   -----------------------------
+   The script outputs: ADMIN_PASSWORD_HASH=$2b$12$abcd1234...xyz
+
+   Copy the ENTIRE hash including the $2b$12$ prefix
+   Use as: ADMIN_PASSWORD_HASH=$2b$12$abcd1234...xyz
+
+   ⚠️  SECURITY: Never use ADMIN_PASSWORD in production
+   ⚠️  Only use ADMIN_PASSWORD_HASH with the bcrypt hash
+
+3. GOOGLE OAUTH CREDENTIALS (Calendar Integration)
+   ================================================
+
+   Step 1: Create Google Cloud Project
+   ------------------------------------
+   1. Visit: https://console.cloud.google.com
+   2. Click "Select a project" dropdown → "New Project"
+   3. Project name: "Evangelo Sommer CRM"
+   4. Click "Create" and wait for project creation
+   5. Select the newly created project
+
+   Step 2: Enable Required APIs
+   -----------------------------
+   1. In the left sidebar, go to "APIs & Services" → "Library"
+   2. Search for "Google Calendar API" → Click it → Click "Enable"
+   3. Search for "Gmail API" → Click it → Click "Enable"
+
+   Step 3: Configure OAuth Consent Screen
+   ---------------------------------------
+   1. Go to "APIs & Services" → "OAuth consent screen"
+   2. User Type: Select "External" → Click "Create"
+   3. App Information:
+      - App name: "Evangelo Sommer CRM"
+      - User support email: support@evangelosommer.com
+      - App logo: (optional)
+   4. Developer contact: support@evangelosommer.com
+   5. Click "Save and Continue"
+   6. Scopes: Click "Add or Remove Scopes"
+      - Select: .../auth/calendar (View and edit events)
+      - Select: .../auth/calendar.events
+      - Select: .../auth/gmail.send (Send emails)
+   7. Click "Update" → "Save and Continue"
+   8. Test users (for development):
+      - Click "Add Users"
+      - Add: support@evangelosommer.com
+   9. Click "Save and Continue" → "Back to Dashboard"
+
+   Step 4: Create OAuth 2.0 Client ID
+   -----------------------------------
+   1. Go to "APIs & Services" → "Credentials"
+   2. Click "Create Credentials" → "OAuth client ID"
+   3. Application type: "Web application"
+   4. Name: "CRM Web Client"
+   5. Authorized JavaScript origins:
+      - Click "Add URI" → https://evangelosommer.com
+      - Click "Add URI" → http://localhost:3000
+   6. Authorized redirect URIs:
+      - Click "Add URI" → https://evangelosommer.com/api/auth/google/callback
+      - Click "Add URI" → http://localhost:3000/api/auth/google/callback
+   7. Click "Create"
+
+   Step 5: Copy Your Credentials
+   ------------------------------
+   A modal will appear with your credentials:
+
+   Client ID (example: 123456789-abcdefgh.apps.googleusercontent.com)
+   - Copy this → Use as: GOOGLE_CLIENT_ID
+
+   Client secret (example: GOCSPX-abcd1234efgh5678)
+   - Copy this → Use as: GOOGLE_CLIENT_SECRET
+
+   Also set:
+   GOOGLE_REDIRECT_URI=https://evangelosommer.com/api/auth/google/callback
+
+   ℹ️  You can find these again in: Credentials → OAuth 2.0 Client IDs
+
+4. DATABASE URL (Choose One Option)
+   =================================
+
+   Option A: Vercel Postgres (Easiest for Vercel deployments)
+   -----------------------------------------------------------
+   1. Go to: https://vercel.com/dashboard
+   2. Select your project "evangelosommer"
+   3. Click "Storage" tab
+   4. Click "Create Database"
+   5. Select "Postgres"
+   6. Database name: "evangelosommer-prod"
+   7. Region: Choose closest to your users (e.g., Washington, D.C.)
+   8. Click "Create"
+   9. Once created, click on the database
+   10. Go to ".env.local" tab
+   11. Copy the POSTGRES_PRISMA_URL value
+
+   Use as: DATABASE_URL=<the POSTGRES_PRISMA_URL value>
+
+   ✅ Vercel automatically adds this to your environment variables
+
+   Option B: Supabase (Free tier, good performance)
+   -------------------------------------------------
+   1. Visit: https://supabase.com
+   2. Sign up with GitHub
+   3. Click "New project"
+   4. Organization: Create or select
+   5. Name: "evangelosommer-crm"
+   6. Database Password: Generate strong password (save it!)
+   7. Region: Choose closest to your users
+   8. Pricing Plan: Free (or Pro for production)
+   9. Click "Create new project" (takes ~2 minutes)
+   10. Once ready, go to Project Settings (gear icon)
+   11. Click "Database" in left sidebar
+   12. Find "Connection string" → Select "URI"
+   13. Copy the connection string
+   14. Replace [YOUR-PASSWORD] with the password from step 6
+
+   Format: postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:5432/postgres
+   Use as: DATABASE_URL=postgresql://postgres:your-password@db.xxxxx.supabase.co:5432/postgres
+
+   Option C: Railway (Simple, auto-scaling)
+   -----------------------------------------
+   1. Visit: https://railway.app
+   2. Click "Login" → Sign in with GitHub
+   3. Click "New Project"
+   4. Select "Provision PostgreSQL"
+   5. Wait for database creation (~30 seconds)
+   6. Click on the PostgreSQL service card
+   7. Click "Variables" tab
+   8. Find "DATABASE_URL" and click to copy
+
+   Format: postgresql://postgres:password@containers-us-west-xxx.railway.app:1234/railway
+   Use as: DATABASE_URL=<copied value>
+
+   Option D: Neon (Serverless Postgres, generous free tier)
+   ---------------------------------------------------------
+   1. Visit: https://neon.tech
+   2. Sign up with GitHub
+   3. Click "Create a project"
+   4. Project name: "evangelosommer-crm"
+   5. Postgres version: 15 (latest stable)
+   6. Region: Choose closest to your users
+   7. Click "Create project"
+   8. On the dashboard, you'll see "Connection string"
+   9. Copy the connection string
+
+   Format: postgresql://user:password@ep-xxx-123.us-east-2.aws.neon.tech/neondb
+   Use as: DATABASE_URL=<copied value>
+
+5. SMTP CREDENTIALS (Email Sending)
+   ==================================
+
+   Option A: Gmail with App Password (Recommended, Free)
+   ------------------------------------------------------
+   Step 1: Enable 2-Factor Authentication
+   1. Go to: https://myaccount.google.com/security
+   2. Click "2-Step Verification"
+   3. Follow prompts to enable (requires phone)
+
+   Step 2: Generate App Password
+   1. Go to: https://myaccount.google.com/apppasswords
+      (or search "App passwords" in account settings)
+   2. Select app: "Mail"
+   3. Select device: "Other (Custom name)"
+   4. Name it: "CRM SMTP Access"
+   5. Click "Generate"
+   6. Copy the 16-character password (example: abcd efgh ijkl mnop)
+   7. Remove spaces: abcdefghijklmnop
+
+   Step 3: Encode Password in Base64
+   Command: echo -n "abcdefghijklmnop" | base64
+   Output example: YWJjZGVmZ2hpamtsbW5vcA==
+
+   Step 4: Set Environment Variables
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=support@evangelosommer.com
+   SMTP_PASS_B64=YWJjZGVmZ2hpamtsbW5vcA==
+   SMTP_SECURE=true
+
+   Option B: Gmail API with OAuth (More Secure)
+   ---------------------------------------------
+   1. Use the same Google Cloud Project from section 3
+   2. Ensure Gmail API is enabled (from Step 2 in section 3)
+   3. Run: node get-refresh-token.js
+   4. Browser will open → Sign in with Google
+   5. Click "Allow" to grant permissions
+   6. Copy the refresh token from terminal output
+
+   Set Environment Variables:
+   GMAIL_CLIENT_ID=<same as GOOGLE_CLIENT_ID>
+   GMAIL_CLIENT_SECRET=<same as GOOGLE_CLIENT_SECRET>
+   GMAIL_REFRESH_TOKEN=<token from step 6>
+
+   Option C: SendGrid (Reliable, 100 free emails/day)
+   ---------------------------------------------------
+   1. Visit: https://sendgrid.com
+   2. Sign up for free account
+   3. Complete email verification
+   4. Go to Settings → API Keys
+   5. Click "Create API Key"
+   6. Name: "CRM Email Service"
+   7. Permissions: "Restricted Access" → Enable "Mail Send"
+   8. Click "Create & View"
+   9. Copy the API key (starts with SG.)
+
+   Set Environment Variables:
+   SMTP_HOST=smtp.sendgrid.net
+   SMTP_PORT=587
+   SMTP_USER=apikey
+   SMTP_PASS_B64=<base64 encode your API key>
+   SMTP_SECURE=true
+
+6. ADMIN EMAIL
+   ============
+
+   Set this to your support email address:
+   ADMIN_EMAIL=support@evangelosommer.com
+
+   This email is used for:
+   - Authentication login
+   - Default sender address for notifications
+   - OAuth callback verification
+
+7. NEXTAUTH_URL
+   =============
+
+   Production:
+   NEXTAUTH_URL=https://evangelosommer.com
+
+   Development:
+   NEXTAUTH_URL=http://localhost:3000
+
+   This tells NextAuth.js where your application is hosted.
+
+================================================================================
+COMPLETE ENVIRONMENT VARIABLES LIST
+================================================================================
+
+After following the steps above, you should have all these values:
+
+# Core Application
+DATABASE_URL=<from section 4>
+NEXTAUTH_URL=https://evangelosommer.com
+NEXTAUTH_SECRET=<from section 1>
+ENCRYPTION_SECRET=<from section 1>
+CSRF_SECRET=<from section 1>
+
+# Authentication
+ADMIN_EMAIL=support@evangelosommer.com
+ADMIN_PASSWORD_HASH=<from section 2>
+
+# Google OAuth (Calendar Integration)
+GOOGLE_CLIENT_ID=<from section 3>
+GOOGLE_CLIENT_SECRET=<from section 3>
+GOOGLE_REDIRECT_URI=https://evangelosommer.com/api/auth/google/callback
+
+# SMTP (Email Notifications)
+SMTP_HOST=<from section 5>
+SMTP_PORT=587
+SMTP_USER=<from section 5>
+SMTP_PASS_B64=<from section 5>
+SMTP_SECURE=true
+
+# Gmail API (Optional - if using Gmail API instead of SMTP)
+GMAIL_CLIENT_ID=<from section 5 Option B>
+GMAIL_CLIENT_SECRET=<from section 5 Option B>
+GMAIL_REFRESH_TOKEN=<from section 5 Option B>
+
+================================================================================
+ADDING VARIABLES TO VERCEL
+================================================================================
+
+Method 1: Vercel Dashboard (Recommended)
+-----------------------------------------
+1. Go to: https://vercel.com/dashboard
+2. Select your project: "evangelosommer"
+3. Click "Settings" → "Environment Variables"
+4. For EACH variable above:
+   - Click "Add New"
+   - Key: Variable name (e.g., NEXTAUTH_SECRET)
+   - Value: The value you generated/copied
+   - Environments: Check "Production", "Preview", "Development"
+   - Click "Save"
+5. After adding all variables, redeploy:
+   - Go to "Deployments" tab
+   - Click "..." on latest deployment → "Redeploy"
+
+Method 2: Vercel CLI
+--------------------
+1. Install: npm i -g vercel
+2. Login: vercel login
+3. Link project: vercel link
+4. Add each variable:
+   vercel env add NEXTAUTH_SECRET production
+   (paste value when prompted)
+   vercel env add ENCRYPTION_SECRET production
+   (paste value when prompted)
+   ... repeat for all variables
+
+Method 3: Local Development (.env.local)
+-----------------------------------------
+Create .env.local in project root:
+
+DATABASE_URL="postgresql://..."
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="..."
+ENCRYPTION_SECRET="..."
+CSRF_SECRET="..."
+ADMIN_EMAIL="support@evangelosommer.com"
+ADMIN_PASSWORD_HASH="$2b$12$..."
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+GOOGLE_REDIRECT_URI="http://localhost:3000/api/auth/google/callback"
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
+SMTP_USER="support@evangelosommer.com"
+SMTP_PASS_B64="..."
+SMTP_SECURE="true"
+
+⚠️  NEVER commit .env.local to git! (already in .gitignore)
+
+================================================================================
+SECURITY CONTACT
+================================================================================
+
+For security issues, contact: support@evangelosommer.com
+
+================================================================================
+END OF SECURITY AUDIT REPORT
+================================================================================

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 const integrations = [
   {
@@ -17,6 +18,9 @@ const integrations = [
 ];
 
 export default function CRMIntegrationPanel() {
+  const { tokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
   return (
     <View style={styles.panel}>
       <Text style={styles.heading}>CRM integrations</Text>
@@ -36,56 +40,62 @@ export default function CRMIntegrationPanel() {
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    marginTop: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#1b2134",
-    backgroundColor: "#0f1322",
-    padding: 16,
-  },
-  heading: {
-    color: "#f5f6ff",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  row: {
-    borderTopWidth: 1,
-    borderTopColor: "#151a29",
-    paddingTop: 12,
-    paddingBottom: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  textBlock: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  title: {
-    color: "#cbd3f4",
-    fontWeight: "600",
-  },
-  detail: {
-    color: "#9cb3ff",
-    fontSize: 12,
-    marginTop: 4,
-  },
-  status: {
-    color: "#8fd7ff",
-    fontSize: 11,
-    alignSelf: "center",
-  },
-  button: {
-    marginTop: 16,
-    backgroundColor: "#6fb1ff",
-    borderRadius: 16,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#0c1221",
-    fontWeight: "700",
-  },
-});
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
+    panel: {
+      marginTop: 16,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      backgroundColor: tokens.surface,
+      padding: 16,
+      shadowColor: tokens.shadowDark,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+    heading: {
+      color: tokens.textPrimary,
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 12,
+    },
+    row: {
+      borderTopWidth: 1,
+      borderTopColor: tokens.border,
+      paddingTop: 12,
+      paddingBottom: 10,
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    textBlock: {
+      flex: 1,
+      paddingRight: 12,
+    },
+    title: {
+      color: tokens.textSecondary,
+      fontWeight: "600",
+    },
+    detail: {
+      color: tokens.highlight,
+      fontSize: 12,
+      marginTop: 4,
+    },
+    status: {
+      color: tokens.accent,
+      fontSize: 11,
+      alignSelf: "center",
+    },
+    button: {
+      marginTop: 16,
+      backgroundColor: tokens.accent,
+      borderRadius: 16,
+      paddingVertical: 12,
+      alignItems: "center",
+    },
+    buttonText: {
+      color: tokens.background,
+      fontWeight: "700",
+    },
+  });

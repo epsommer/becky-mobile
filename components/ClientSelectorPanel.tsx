@@ -1,88 +1,689 @@
 "use client";
 
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { StyleSheet, Text, TouchableOpacity, View, Animated, LayoutAnimation, Platform, UIManager } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
-const clients = [
-  { name: "Woodgreen Landscaping", status: "On track" },
-  { name: "Marina Studio", status: "Conversation active" },
-  { name: "Sammy Creative", status: "Quote pending" },
-];
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+import { useApi } from "../lib/hooks/useApi";
+import { clientsApi } from "../lib/api/endpoints";
+import ReceiptModal from "./billing/ReceiptModal";
 
-export default function ClientSelectorPanel() {
+interface SelectorClient {
+  id: string;
+  name: string;
+  status?: string;
+  createdAt?: string;
+  email?: string;
+  phone?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+  };
+}
+
+interface ClientSelectorPanelProps {
+  onNavigateToClients?: () => void;
+  variant?: 'recent' | 'all';
+  searchQuery?: string;
+  statusFilter?: string;
+  serviceFilter?: string;
+  onViewClientDetail?: (clientId: string) => void;
+}
+
+export default function ClientSelectorPanel({
+  onNavigateToClients,
+  variant = 'all',
+  searchQuery = '',
+  statusFilter = 'all',
+  serviceFilter = 'all',
+  onViewClientDetail
+}: ClientSelectorPanelProps) {
+  const { tokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
+  const isRecent = variant === 'recent';
+  const limit = isRecent ? 9 : 100; // Show 9 for recent, 100 for all
+
+  // State for menu, selections, and expansion
+  const [openMenuId, setOpenMenuId] = React.useState<string | null>(null);
+  const [selectedClients, setSelectedClients] = React.useState<Set<string>>(new Set());
+  const [expandedClientId, setExpandedClientId] = React.useState<string | null>(null);
+  const [showReceiptModal, setShowReceiptModal] = React.useState(false);
+  const [receiptClientId, setReceiptClientId] = React.useState<string | null>(null);
+
+  // Animation for list appearance
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // ✨ New API client - replaces 45+ lines of fetch logic
+  const { data: clients, loading, error } = useApi(
+    () => clientsApi.getClients({ limit }),
+    [limit]
+  );
+
+  // Animate list when clients load
+  useEffect(() => {
+    if (clients && clients.length > 0) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [clients, fadeAnim]);
+
+  // Toggle expanded client with animation
+  const toggleExpanded = (clientId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedClientId(expandedClientId === clientId ? null : clientId);
+  };
+
+  // Filter and sort clients based on search, filters, and variant
+  const sortedClients = React.useMemo(() => {
+    if (!clients) return [];
+
+    let filtered = [...clients];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(client =>
+        client.name.toLowerCase().includes(query) ||
+        (client.status && client.status.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(client =>
+        client.status && client.status.toLowerCase() === statusFilter.toLowerCase()
+      );
+    }
+
+    // Apply service line filter (assuming clients might have a serviceType field)
+    // Note: This assumes the client object has a serviceType or similar field
+    // Adjust based on your actual data structure
+    if (serviceFilter !== 'all') {
+      filtered = filtered.filter(client => {
+        // TODO: Update this based on actual client data structure
+        // For now, this is a placeholder
+        return true;
+      });
+    }
+
+    if (!isRecent) {
+      // For 'all' variant, return filtered clients
+      return filtered;
+    }
+
+    // For 'recent' variant, sort by createdAt and limit to 9
+    return filtered
+      .sort((a, b) => {
+        // Handle missing createdAt - put at end
+        if (!a.createdAt && !b.createdAt) return 0;
+        if (!a.createdAt) return 1;
+        if (!b.createdAt) return -1;
+
+        // Parse dates and compare (newer first)
+        try {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        } catch (e) {
+          console.warn('[ClientSelectorPanel] Invalid date:', a.createdAt, b.createdAt);
+          return 0;
+        }
+      })
+      .slice(0, 9);
+  }, [clients, isRecent, searchQuery, statusFilter, serviceFilter]);
+
+  const headerText = isRecent ? 'Recent Clients' : 'Clients';
+
+  // Toggle checkbox selection
+  const toggleClientSelection = (clientId: string) => {
+    setSelectedClients(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(clientId)) {
+        newSet.delete(clientId);
+      } else {
+        newSet.add(clientId);
+      }
+      return newSet;
+    });
+  };
+
+  // Menu action handlers
+  const handleViewInfo = (client: SelectorClient) => {
+    console.log('[ClientSelectorPanel] View info:', client);
+    setOpenMenuId(null);
+    if (onViewClientDetail) {
+      onViewClientDetail(client.id);
+    }
+  };
+
+  const handleEditClient = (client: SelectorClient) => {
+    console.log('[ClientSelectorPanel] Edit client:', client);
+    setOpenMenuId(null);
+    // TODO: Navigate to edit client screen
+  };
+
+  const handleSelectClient = (client: SelectorClient) => {
+    console.log('[ClientSelectorPanel] Select client:', client);
+    setOpenMenuId(null);
+    // TODO: Set as active client
+  };
+
+  const handleDeleteClient = (client: SelectorClient) => {
+    console.log('[ClientSelectorPanel] Delete client:', client);
+    setOpenMenuId(null);
+    // TODO: Show confirmation dialog then delete
+  };
+
+  // Batch operation handlers
+  const handleBatchDelete = () => {
+    console.log('[ClientSelectorPanel] Batch delete:', Array.from(selectedClients));
+    // TODO: Show confirmation dialog then delete selected clients
+  };
+
+  const handleBatchExport = () => {
+    console.log('[ClientSelectorPanel] Batch export:', Array.from(selectedClients));
+    // TODO: Export selected clients to CSV or similar
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedClients(new Set());
+  };
+
+  // Quick action handlers
+  const handleMessage = (client: SelectorClient) => {
+    console.log('[ClientSelectorPanel] Message client:', client);
+    // TODO: Open message composer
+  };
+
+  const handleAppointment = (client: SelectorClient) => {
+    console.log('[ClientSelectorPanel] Create appointment:', client);
+    // TODO: Open appointment scheduler
+  };
+
+  const handleReceipt = (client: SelectorClient) => {
+    console.log('[ClientSelectorPanel] Send receipt:', client);
+    setReceiptClientId(client.id);
+    setShowReceiptModal(true);
+  };
+
+  const handleNote = (client: SelectorClient) => {
+    console.log('[ClientSelectorPanel] Add note:', client);
+    // TODO: Open note editor
+  };
+
+  const handleTimer = (client: SelectorClient) => {
+    console.log('[ClientSelectorPanel] Start timer:', client);
+    // TODO: Start time tracking
+  };
+
+  const selectedCount = selectedClients.size;
+
   return (
     <View style={styles.panel}>
       <View style={styles.headingRow}>
-        <Text style={styles.heading}>Clients</Text>
-        <TouchableOpacity>
-          <Text style={styles.cta}>All</Text>
-        </TouchableOpacity>
-      </View>
-      {clients.map((client) => (
-        <View key={client.name} style={styles.clientRow}>
-          <View>
-            <Text style={styles.clientName}>{client.name}</Text>
-            <Text style={styles.clientStatus}>{client.status}</Text>
-          </View>
-          <TouchableOpacity style={styles.switchBtn}>
-            <Text style={styles.switchText}>Switch</Text>
+        <Text style={styles.heading}>{headerText}</Text>
+        {isRecent && (
+          <TouchableOpacity
+            onPress={onNavigateToClients}
+            style={styles.iconButton}
+            activeOpacity={0.6}
+          >
+            <Ionicons name="chevron-forward" size={18} color={tokens.accent} />
           </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Batch Operations Bar */}
+      {selectedCount > 0 && (
+        <View style={[styles.batchBar, { backgroundColor: tokens.highlight + '20', borderColor: tokens.accent }]}>
+          <Text style={[styles.batchCount, { color: tokens.textPrimary }]}>
+            {selectedCount} selected
+          </Text>
+          <View style={styles.batchActions}>
+            <TouchableOpacity
+              style={[styles.batchButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
+              onPress={handleBatchExport}
+            >
+              <Ionicons name="download-outline" size={16} color={tokens.accent} />
+              <Text style={[styles.batchButtonText, { color: tokens.accent }]}>Export</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.batchButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
+              onPress={handleDeselectAll}
+            >
+              <Ionicons name="close" size={16} color={tokens.textSecondary} />
+              <Text style={[styles.batchButtonText, { color: tokens.textSecondary }]}>Clear</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.batchButton, styles.batchButtonDanger, { borderColor: tokens.error || '#ef4444' }]}
+              onPress={handleBatchDelete}
+            >
+              <Ionicons name="trash-outline" size={16} color={tokens.error || '#ef4444'} />
+              <Text style={[styles.batchButtonText, { color: tokens.error || '#ef4444' }]}>Delete</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      ))}
+      )}
+      {loading && <Text style={styles.statusHint}>Loading database...</Text>}
+      {error && <Text style={styles.statusHint}>{error}</Text>}
+      {!loading && !error && (!sortedClients || sortedClients.length === 0) && (
+        <Text style={styles.statusHint}>No clients found.</Text>
+      )}
+      <Animated.View style={{ opacity: fadeAnim }}>
+      {sortedClients && sortedClients.map((client) => {
+        const isSelected = selectedClients.has(client.id);
+        const isMenuOpen = openMenuId === client.id;
+        const isExpanded = expandedClientId === client.id;
+
+        return (
+          <View key={client.id} style={styles.clientContainer}>
+            <TouchableOpacity
+              style={styles.clientRow}
+              onPress={() => toggleExpanded(client.id)}
+              activeOpacity={0.7}
+            >
+              {/* Client info */}
+              <View style={styles.clientInfo}>
+                <View style={styles.clientNameRow}>
+                  <Text style={styles.clientName}>{client.name}</Text>
+                  <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={tokens.textSecondary} />
+                </View>
+                {client.status && (
+                  <Text style={styles.clientStatus}>{client.status}</Text>
+                )}
+              </View>
+
+              {/* Actions: Menu icon and Checkbox */}
+              <View style={styles.actionsRow}>
+                {/* Triple-dot menu */}
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setOpenMenuId(isMenuOpen ? null : client.id);
+                  }}
+                  style={styles.menuButton}
+                >
+                  <Ionicons name="ellipsis-vertical" size={18} color={tokens.textSecondary} />
+                </TouchableOpacity>
+
+                {/* Checkbox */}
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    toggleClientSelection(client.id);
+                  }}
+                  style={styles.checkboxButton}
+                >
+                  <Ionicons name={isSelected ? 'checkbox' : 'square-outline'} size={20} color={isSelected ? tokens.accent : tokens.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+            </TouchableOpacity>
+
+            {/* Menu popup */}
+            {isMenuOpen && (
+              <View style={styles.menuPopup}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => handleViewInfo(client)}
+                >
+                  <Ionicons name="information-circle-outline" size={16} color={tokens.textPrimary} />
+                  <Text style={styles.menuItemText}>View info</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => handleEditClient(client)}
+                >
+                  <Ionicons name="create-outline" size={16} color={tokens.textPrimary} />
+                  <Text style={styles.menuItemText}>Edit client</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => handleSelectClient(client)}
+                >
+                  <Ionicons name="checkmark" size={16} color={tokens.textPrimary} />
+                  <Text style={styles.menuItemText}>Select client</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.menuItem, styles.menuItemDanger]}
+                  onPress={() => handleDeleteClient(client)}
+                >
+                  <Ionicons name="trash-outline" size={16} color={tokens.error || '#ef4444'} />
+                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>
+                    Delete client
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Expanded Detail Section */}
+            {isExpanded && (
+              <View style={[styles.expandedSection, { backgroundColor: tokens.background, borderColor: tokens.border }]}>
+                {/* Client Details */}
+                <View style={styles.detailsGrid}>
+                  {client.email && (
+                    <View style={styles.detailItem}>
+                      <Ionicons name="mail-outline" size={14} color={tokens.textSecondary} />
+                      <Text style={[styles.detailLabel, { color: tokens.textSecondary }]}>Email</Text>
+                      <Text style={[styles.detailValue, { color: tokens.textPrimary }]}>{client.email}</Text>
+                    </View>
+                  )}
+                  {client.phone && (
+                    <View style={styles.detailItem}>
+                      <Ionicons name="call-outline" size={14} color={tokens.textSecondary} />
+                      <Text style={[styles.detailLabel, { color: tokens.textSecondary }]}>Phone</Text>
+                      <Text style={[styles.detailValue, { color: tokens.textPrimary }]}>{client.phone}</Text>
+                    </View>
+                  )}
+                  {client.address && (
+                    <View style={styles.detailItem}>
+                      <Ionicons name="location-outline" size={14} color={tokens.textSecondary} />
+                      <Text style={[styles.detailLabel, { color: tokens.textSecondary }]}>Location</Text>
+                      <Text style={[styles.detailValue, { color: tokens.textPrimary }]}>
+                        {[client.address.street, client.address.city, client.address.state]
+                          .filter(Boolean)
+                          .join(', ') || 'N/A'}
+                      </Text>
+                    </View>
+                  )}
+                  {client.status && (
+                    <View style={styles.detailItem}>
+                      <Ionicons name="ellipse" size={10} color={tokens.textSecondary} />
+                      <Text style={[styles.detailLabel, { color: tokens.textSecondary }]}>Status</Text>
+                      <Text style={[styles.detailValue, { color: tokens.accent }]}>{client.status}</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Quick Actions */}
+                <View style={styles.quickActionsSection}>
+                  <Text style={[styles.quickActionsLabel, { color: tokens.textSecondary }]}>Quick Actions</Text>
+                  <View style={styles.quickActionsGrid}>
+                    <TouchableOpacity
+                      style={[styles.quickActionButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
+                      onPress={() => handleMessage(client)}
+                    >
+                      <Ionicons name="chatbubble" size={18} color={tokens.accent} />
+                      <Text style={[styles.quickActionText, { color: tokens.textPrimary }]}>Message</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.quickActionButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
+                      onPress={() => handleAppointment(client)}
+                    >
+                      <Ionicons name="calendar" size={18} color={tokens.accent} />
+                      <Text style={[styles.quickActionText, { color: tokens.textPrimary }]}>Appointment</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.quickActionButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
+                      onPress={() => handleReceipt(client)}
+                    >
+                      <Ionicons name="document-text" size={18} color={tokens.accent} />
+                      <Text style={[styles.quickActionText, { color: tokens.textPrimary }]}>Receipt</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.quickActionButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
+                      onPress={() => handleNote(client)}
+                    >
+                      <Ionicons name="create" size={18} color={tokens.accent} />
+                      <Text style={[styles.quickActionText, { color: tokens.textPrimary }]}>Note</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.quickActionButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
+                      onPress={() => handleTimer(client)}
+                    >
+                      <Ionicons name="timer" size={18} color={tokens.accent} />
+                      <Text style={[styles.quickActionText, { color: tokens.textPrimary }]}>Timer</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        );
+      })}
+      </Animated.View>
+
+      {/* Receipt Modal */}
+      <ReceiptModal
+        isOpen={showReceiptModal}
+        onClose={() => {
+          setShowReceiptModal(false);
+          setReceiptClientId(null);
+        }}
+        onReceiptCreated={() => {
+          setShowReceiptModal(false);
+          setReceiptClientId(null);
+        }}
+        initialClientId={receiptClientId || undefined}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#1b2134",
-    backgroundColor: "#0f1322",
-    padding: 16,
-    marginBottom: 16,
-  },
-  headingRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  heading: {
-    color: "#f5f6ff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  cta: {
-    color: "#6fb1ff",
-    textTransform: "uppercase",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  clientRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#151a29",
-  },
-  clientName: {
-    color: "#cbd3f4",
-    fontWeight: "600",
-  },
-  clientStatus: {
-    color: "#9cb3ff",
-    fontSize: 11,
-  },
-  switchBtn: {
-    backgroundColor: "#5c93ff",
-    borderRadius: 12,
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-  },
-  switchText: {
-    color: "#0c1221",
-    fontWeight: "700",
-    fontSize: 11,
-  },
-});
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
+    panel: {
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      backgroundColor: tokens.surface,
+      padding: 16,
+      marginBottom: 16,
+      shadowColor: tokens.shadowDark,
+      shadowOffset: { width: 2, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+    headingRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    heading: {
+      color: tokens.textPrimary,
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    cta: {
+      color: tokens.accent,
+      textTransform: "uppercase",
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    iconButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: tokens.surface,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      justifyContent: "center",
+      alignItems: "center",
+      shadowColor: tokens.shadowDark,
+      shadowOffset: { width: 1, height: 1 },
+      shadowOpacity: 0.15,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    clientContainer: {
+      borderTopWidth: 1,
+      borderTopColor: tokens.border,
+    },
+    clientRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: 12,
+      position: "relative",
+    },
+    clientInfo: {
+      flex: 1,
+    },
+    clientNameRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    clientName: {
+      color: tokens.textPrimary,
+      fontWeight: "600",
+      fontSize: 15,
+    },
+    clientStatus: {
+      color: tokens.textSecondary,
+      fontSize: 11,
+      marginTop: 2,
+    },
+    actionsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    menuButton: {
+      padding: 6,
+      borderRadius: 8,
+    },
+    checkboxButton: {
+      padding: 4,
+    },
+    menuPopup: {
+      position: "absolute",
+      right: 40,
+      top: 35,
+      backgroundColor: tokens.surface,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      shadowColor: tokens.shadowDark,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 8,
+      minWidth: 160,
+      zIndex: 1000,
+    },
+    menuItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      gap: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: tokens.border,
+    },
+    menuItemText: {
+      color: tokens.textPrimary,
+      fontSize: 14,
+      fontWeight: "500",
+    },
+    menuItemDanger: {
+      borderBottomWidth: 0,
+    },
+    menuItemTextDanger: {
+      color: tokens.error || '#ef4444',
+    },
+    batchBar: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      marginTop: 12,
+      marginBottom: 12,
+    },
+    batchCount: {
+      fontSize: 14,
+      fontWeight: "600",
+    },
+    batchActions: {
+      flexDirection: "row",
+      gap: 8,
+    },
+    batchButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    batchButtonDanger: {
+      backgroundColor: "transparent",
+    },
+    batchButtonText: {
+      fontSize: 13,
+      fontWeight: "600",
+    },
+    expandedSection: {
+      paddingHorizontal: 12,
+      paddingVertical: 16,
+      borderTopWidth: 1,
+      marginTop: 8,
+    },
+    detailsGrid: {
+      gap: 12,
+      marginBottom: 16,
+    },
+    detailItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    detailLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      textTransform: "uppercase",
+      minWidth: 70,
+    },
+    detailValue: {
+      fontSize: 14,
+      flex: 1,
+    },
+    quickActionsSection: {
+      marginTop: 8,
+    },
+    quickActionsLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      textTransform: "uppercase",
+      marginBottom: 10,
+    },
+    quickActionsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+    },
+    quickActionButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      minWidth: 110,
+    },
+    quickActionText: {
+      fontSize: 13,
+      fontWeight: "600",
+    },
+    statusHint: {
+      color: tokens.textSecondary,
+      fontSize: 12,
+      marginBottom: 6,
+    },
+  });

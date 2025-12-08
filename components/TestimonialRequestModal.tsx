@@ -14,7 +14,7 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 import { useApi } from "../lib/hooks/useApi";
 import { clientsApi, testimonialsApi } from "../lib/api/endpoints";
@@ -226,7 +226,7 @@ export default function TestimonialRequestModal({
               disabled={isSubmitting}
               style={styles.closeButton}
             >
-              <Feather name="x" size={24} color={tokens.textPrimary} />
+              <Ionicons name="close" size={24} color={tokens.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -237,7 +237,7 @@ export default function TestimonialRequestModal({
           >
             {success ? (
               <View style={styles.successContainer}>
-                <Feather name="check-circle" size={64} color="#10b981" />
+                <Ionicons name="checkmark-circle" size={64} color="#10b981" />
                 <Text style={[styles.successTitle, { color: tokens.textPrimary }]}>
                   Request Sent Successfully!
                 </Text>
@@ -511,7 +511,7 @@ export default function TestimonialRequestModal({
                       <ActivityIndicator size="small" color={tokens.background} />
                     ) : (
                       <>
-                        <Feather name="send" size={16} color={tokens.background} />
+                        <Ionicons name="send" size={16} color={tokens.background} />
                         <Text style={[styles.buttonText, { color: tokens.background }]}>
                           Send Request
                         </Text>

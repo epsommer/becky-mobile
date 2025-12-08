@@ -1,0 +1,281 @@
+"use client"
+
+import React, { useState } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { MessageSquare, Phone, Mail, Calendar, X, Search, Filter } from 'lucide-react'
+import { format } from 'date-fns'
+
+interface Conversation {
+  id: string
+  clientName: string
+  clientId: string
+  subject: string
+  lastMessage: string
+  timestamp: Date
+  status: 'active' | 'pending' | 'resolved' | 'archived'
+  priority: 'low' | 'medium' | 'high' | 'urgent'
+  serviceType: 'landscaping' | 'snow_removal' | 'pet_services' | 'creative_development'
+  messageCount: number
+  unreadCount: number
+  type: 'phone' | 'email' | 'chat' | 'meeting'
+}
+
+interface ConversationsModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+const mockConversations: Conversation[] = [
+  {
+    id: 'conv-1',
+    clientName: 'Johnson Family',
+    clientId: 'client-1',
+    subject: 'Weekly Lawn Service Schedule',
+    lastMessage: 'Can we reschedule this week\'s service to Friday?',
+    timestamp: new Date(2024, 0, 15, 14, 30),
+    status: 'active',
+    priority: 'medium',
+    serviceType: 'landscaping',
+    messageCount: 8,
+    unreadCount: 2,
+    type: 'email'
+  },
+  {
+    id: 'conv-2',
+    clientName: 'Sarah Miller',
+    clientId: 'client-2',
+    subject: 'Dog Walking Emergency',
+    lastMessage: 'Bella is feeling sick today, can you skip the walk?',
+    timestamp: new Date(2024, 0, 15, 12, 15),
+    status: 'resolved',
+    priority: 'high',
+    serviceType: 'pet_services',
+    messageCount: 4,
+    unreadCount: 0,
+    type: 'phone'
+  },
+  {
+    id: 'conv-3',
+    clientName: 'Downtown Plaza Management',
+    clientId: 'client-3',
+    subject: 'Snow Removal Contract Renewal',
+    lastMessage: 'Please send updated pricing for next season',
+    timestamp: new Date(2024, 0, 15, 9, 45),
+    status: 'pending',
+    priority: 'urgent',
+    serviceType: 'snow_removal',
+    messageCount: 12,
+    unreadCount: 3,
+    type: 'email'
+  },
+  {
+    id: 'conv-4',
+    clientName: 'Tech Startup Inc',
+    clientId: 'client-4',
+    subject: 'Website Redesign Project',
+    lastMessage: 'The mockups look great! When can we schedule a review?',
+    timestamp: new Date(2024, 0, 14, 16, 20),
+    status: 'active',
+    priority: 'medium',
+    serviceType: 'creative_development',
+    messageCount: 15,
+    unreadCount: 1,
+    type: 'chat'
+  }
+]
+
+const ConversationsModal: React.FC<ConversationsModalProps> = ({ isOpen, onClose }) => {
+  const [conversations] = useState<Conversation[]>(mockConversations)
+  const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const getStatusColor = (status: string) => {
+    const colors = {
+      active: 'bg-gold text-dark-grey',
+      pending: 'bg-orange-500 text-white',
+      resolved: 'bg-green-600 text-white',
+      archived: 'bg-medium-grey text-white'
+    }
+    return colors[status as keyof typeof colors] || colors.active
+  }
+
+  const getPriorityColor = (priority: string) => {
+    const colors = {
+      low: 'bg-light-grey text-medium-grey',
+      medium: 'bg-gold text-dark-grey',
+      high: 'bg-dark-grey text-white',
+      urgent: 'bg-red-600 text-white'
+    }
+    return colors[priority as keyof typeof colors] || colors.medium
+  }
+
+  const getServiceColor = (serviceType: string) => {
+    const colors = {
+      landscaping: 'bg-green-600',
+      snow_removal: 'bg-blue-600',
+      pet_services: 'bg-purple-600',
+      creative_development: 'bg-gold'
+    }
+    return colors[serviceType as keyof typeof colors] || colors.landscaping
+  }
+
+  const getTypeIcon = (type: string) => {
+    const icons = {
+      phone: <Phone className="h-4 w-4" />,
+      email: <Mail className="h-4 w-4" />,
+      chat: <MessageSquare className="h-4 w-4" />,
+      meeting: <Calendar className="h-4 w-4" />
+    }
+    return icons[type as keyof typeof icons] || icons.chat
+  }
+
+  const filteredConversations = conversations.filter(conv => {
+    const matchesStatus = selectedStatus === 'all' || conv.status === selectedStatus
+    const matchesSearch = conv.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         conv.subject.toLowerCase().includes(searchTerm.toLowerCase())
+    return matchesStatus && matchesSearch
+  })
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[80vh] p-0 bg-white border-2 border-light-grey">
+        <DialogHeader className="bg-off-white p-6 border-b-2 border-light-grey">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-2xl font-bold text-dark-grey uppercase tracking-wide font-space-grotesk">
+              CONVERSATIONS
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="text-medium-grey hover:text-dark-grey"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+          
+          {/* Filters */}
+          <div className="flex items-center space-x-4 mt-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-medium-grey" />
+              <input
+                type="text"
+                placeholder="SEARCH CONVERSATIONS..."
+                className="w-full pl-10 pr-4 py-2 border-2 border-light-grey bg-white text-dark-grey placeholder-medium-grey font-space-grotesk text-sm uppercase tracking-wide"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-medium-grey" />
+              <select
+                className="border-2 border-light-grey bg-white text-dark-grey font-space-grotesk text-sm uppercase tracking-wide px-3 py-2"
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+              >
+                <option value="all">ALL STATUS</option>
+                <option value="active">ACTIVE</option>
+                <option value="pending">PENDING</option>
+                <option value="resolved">RESOLVED</option>
+                <option value="archived">ARCHIVED</option>
+              </select>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-4">
+            {filteredConversations.map(conversation => (
+              <div
+                key={conversation.id}
+                className="bg-white border-2 border-light-grey p-4 hover:bg-off-white transition-colors cursor-pointer"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <div className={`w-3 h-3 ${getServiceColor(conversation.serviceType)}`}></div>
+                      {getTypeIcon(conversation.type)}
+                      <h3 className="font-bold text-dark-grey font-space-grotesk">
+                        {conversation.clientName}
+                      </h3>
+                      <Badge className={`${getStatusColor(conversation.status)} text-xs font-bold uppercase tracking-wide`}>
+                        {conversation.status}
+                      </Badge>
+                      <Badge className={`${getPriorityColor(conversation.priority)} text-xs font-bold uppercase tracking-wide`}>
+                        {conversation.priority}
+                      </Badge>
+                    </div>
+                    
+                    <h4 className="font-semibold text-dark-grey mb-2 font-space-grotesk">
+                      {conversation.subject}
+                    </h4>
+                    
+                    <p className="text-medium-grey text-sm mb-3 font-space-grotesk">
+                      {conversation.lastMessage}
+                    </p>
+                    
+                    <div className="flex items-center justify-between text-xs text-medium-grey font-space-grotesk">
+                      <span>{format(conversation.timestamp, 'MMM dd, yyyy HH:mm').toUpperCase()}</span>
+                      <div className="flex items-center space-x-4">
+                        <span>{conversation.messageCount} MESSAGES</span>
+                        {conversation.unreadCount > 0 && (
+                          <Badge className="bg-red-600 text-white text-xs font-bold">
+                            {conversation.unreadCount} NEW
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 ml-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-dark-grey border-gold hover:bg-gold hover:text-dark-grey font-space-grotesk text-xs uppercase tracking-wide"
+                    >
+                      VIEW
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-gold text-dark-grey hover:bg-gold-light font-space-grotesk text-xs uppercase tracking-wide"
+                    >
+                      REPLY
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {filteredConversations.length === 0 && (
+            <div className="text-center py-12">
+              <MessageSquare className="h-12 w-12 text-light-grey mx-auto mb-4" />
+              <p className="text-medium-grey font-space-grotesk uppercase tracking-wide">
+                NO CONVERSATIONS FOUND
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <div className="bg-off-white p-4 border-t-2 border-light-grey">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-medium-grey font-space-grotesk">
+              SHOWING {filteredConversations.length} OF {conversations.length} CONVERSATIONS
+            </div>
+            <Button
+              className="bg-gold text-dark-grey hover:bg-gold-light font-space-grotesk text-sm uppercase tracking-wide"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              NEW CONVERSATION
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export default ConversationsModal

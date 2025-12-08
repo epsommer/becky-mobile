@@ -2,6 +2,7 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 const details = [
   { label: "Client", value: "Woodgreen Landscaping" },
@@ -11,6 +12,9 @@ const details = [
 ];
 
 export default function ReceiptDetailsPanel() {
+  const { tokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
   return (
     <View style={styles.panel}>
       <Text style={styles.heading}>Receipt details</Text>
@@ -24,35 +28,41 @@ export default function ReceiptDetailsPanel() {
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    marginTop: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#1b2134",
-    backgroundColor: "#0f1322",
-    padding: 16,
-  },
-  heading: {
-    color: "#f5f6ff",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#151a29",
-  },
-  label: {
-    color: "#9cb3ff",
-    fontSize: 11,
-    textTransform: "uppercase",
-  },
-  value: {
-    color: "#cbd3f4",
-    fontWeight: "600",
-  },
-});
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
+    panel: {
+      marginTop: 16,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      backgroundColor: tokens.surface,
+      padding: 16,
+      shadowColor: tokens.shadowDark,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+    heading: {
+      color: tokens.textPrimary,
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 12,
+    },
+    row: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: tokens.border,
+    },
+    label: {
+      color: tokens.textSecondary,
+      fontSize: 11,
+      textTransform: "uppercase",
+    },
+    value: {
+      color: tokens.textPrimary,
+      fontWeight: "600",
+    },
+  });

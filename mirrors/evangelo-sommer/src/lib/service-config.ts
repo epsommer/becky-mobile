@@ -1,0 +1,340 @@
+// src/lib/service-config.ts
+export interface ServiceType {
+  name: string;
+  descriptionTemplate: string;
+}
+
+export interface Service {
+  id: string;
+  name: string;
+  domain: string;
+  description: string;
+  brand: {
+    primaryColor: string;
+    secondaryColor: string;
+    logo: string;
+    favicon: string;
+  };
+  businessType: string;
+  defaultEmailSignature: string;
+  serviceTypes: ServiceType[];
+  pricingStructure: "hourly" | "project" | "seasonal" | "monthly";
+  communicationStyle: string;
+}
+
+export const serviceConfig: Record<string, Service> = {
+  portfolio: {
+    id: "portfolio",
+    name: "Evangelo Sommer Development",
+    domain: "evangelosommer.com",
+    description: "Web Development & Digital Solutions",
+    brand: {
+      primaryColor: "#D4AF37",
+      secondaryColor: "#64748b",
+      logo: "/logos/evangelo-logo.png",
+      favicon: "/favicons/evangelo.ico",
+    },
+    businessType: "Web Development",
+    defaultEmailSignature:
+      "Best regards,\nEvangelo Sommer\nWeb Developer\nevangelosommer.com",
+    serviceTypes: [
+      { name: "Web Development", descriptionTemplate: "Custom web development services including design, implementation, and deployment" },
+      { name: "E-commerce", descriptionTemplate: "E-commerce solution development and integration services" },
+      { name: "Digital Strategy", descriptionTemplate: "Strategic digital consulting and planning services" },
+      { name: "Consulting", descriptionTemplate: "Professional web development and technology consulting services" },
+    ],
+    pricingStructure: "project",
+    communicationStyle: "Professional and technical",
+  },
+  woodgreen: {
+    id: "woodgreen",
+    name: "WOODGREEN LANDSCAPING",
+    domain: "woodgreenlandscaping.com",
+    description: "Professional Landscaping Services",
+    brand: {
+      primaryColor: "#059669",
+      secondaryColor: "#6b7280",
+      logo: "/logos/woodgreen-logo.png",
+      favicon: "/favicons/woodgreen.ico",
+    },
+    businessType: "Landscaping",
+    defaultEmailSignature:
+      "Best regards,\nWOODGREEN LANDSCAPING Team\nwoodgreenlandscaping.com",
+    serviceTypes: [
+      { name: "Lawn Mowing & Edging", descriptionTemplate: "Professional lawn mowing and precision edging services for a pristine appearance" },
+      { name: "Fall Cleanup", descriptionTemplate: "Comprehensive fall cleanup including leaf removal and seasonal property preparation" },
+      { name: "Spring Cleanup", descriptionTemplate: "Complete spring cleanup and lawn preparation services" },
+      { name: "Hedge Trimming", descriptionTemplate: "Professional hedge trimming and shaping services" },
+      { name: "Weed Removal", descriptionTemplate: "Thorough weed removal and prevention services" },
+      { name: "Sod Laying", descriptionTemplate: "Professional sod installation for instant lawn coverage" },
+      { name: "Lawn Levelling", descriptionTemplate: "Expert lawn levelling and grading services" },
+      { name: "Aeration", descriptionTemplate: "Core aeration services to improve soil health and lawn vitality" },
+      { name: "Dethatching", descriptionTemplate: "Professional dethatching services to remove dead grass and promote healthy growth" },
+      { name: "Fertilization", descriptionTemplate: "Professional lawn fertilization and nutrient application services" },
+      { name: "Mulching", descriptionTemplate: "Quality mulch installation for garden beds and landscape areas" },
+      { name: "Pruning & Trimming", descriptionTemplate: "Expert pruning and trimming services for trees and shrubs" },
+      { name: "Tree Services", descriptionTemplate: "Professional tree care, maintenance, and removal services" },
+      { name: "Garden Design", descriptionTemplate: "Custom garden design and planning services" },
+      { name: "Hardscaping", descriptionTemplate: "Professional hardscaping installation including patios, walkways, and retaining walls" },
+      { name: "Irrigation Installation & Repair", descriptionTemplate: "Irrigation system installation, maintenance, and repair services" },
+      { name: "Pest Control", descriptionTemplate: "Lawn and garden pest control services" },
+      { name: "Overseeding", descriptionTemplate: "Professional overseeding services to thicken and revitalize lawns" },
+      { name: "Landscape Design & Installation", descriptionTemplate: "Complete landscape design and installation services" },
+      { name: "Seasonal Maintenance", descriptionTemplate: "Comprehensive seasonal landscape maintenance services" },
+    ],
+    pricingStructure: "project",
+    communicationStyle: "Friendly and professional",
+  },
+  whiteknight: {
+    id: "whiteknight",
+    name: "White Knight Snow Service",
+    domain: "whiteknightsnowservice.com",
+    description: "Reliable Snow Removal Services",
+    brand: {
+      primaryColor: "#1e40af",
+      secondaryColor: "#9ca3af",
+      logo: "/logos/whiteknight-logo.png",
+      favicon: "/favicons/whiteknight.ico",
+    },
+    businessType: "Snow Removal",
+    defaultEmailSignature:
+      "Stay safe,\nWhite Knight Snow Service\nwhiteknightsnowservice.com",
+    serviceTypes: [
+      { name: "Snow Removal - Single Driveway", descriptionTemplate: "Professional snow removal service for single-width driveways" },
+      { name: "Snow Removal - Double Driveway", descriptionTemplate: "Professional snow removal service for double-width driveways" },
+      { name: "Snow Removal - Triple Driveway", descriptionTemplate: "Professional snow removal service for triple-width driveways" },
+      { name: "Sidewalk Clearing", descriptionTemplate: "Thorough sidewalk snow clearing and ice removal services" },
+      { name: "Parking Lot Plowing", descriptionTemplate: "Commercial parking lot snow plowing and clearing services" },
+      { name: "Commercial Snow Removal", descriptionTemplate: "Comprehensive commercial property snow removal services" },
+      { name: "Sodium Chloride (Rock Salt) Application", descriptionTemplate: "Professional rock salt application for ice prevention and melting" },
+      { name: "Calcium Chloride De-icing", descriptionTemplate: "Calcium chloride de-icing treatment for effective ice control" },
+      { name: "Magnesium Chloride De-icing", descriptionTemplate: "Eco-friendly magnesium chloride de-icing application" },
+      { name: "Sand Application", descriptionTemplate: "Sand application for improved traction on icy surfaces" },
+      { name: "Salt/Sand Mix Application", descriptionTemplate: "Strategic salt and sand mixture application for optimal winter surface treatment" },
+      { name: "Pre-Storm Salting", descriptionTemplate: "Preventative pre-storm salting services to minimize ice formation" },
+      { name: "Post-Storm De-icing", descriptionTemplate: "Post-storm de-icing and surface treatment services" },
+      { name: "Roof Snow Removal", descriptionTemplate: "Safe and professional roof snow removal to prevent damage" },
+      { name: "Extensive Snow Removal (12+ inches)", descriptionTemplate: "Heavy-duty snow removal service for accumulations over 12 inches" },
+      { name: "Light Snow Service (1-5cm)", descriptionTemplate: "Efficient light snow clearing service for minor accumulations" },
+      { name: "Medium Snow Service (5-15cm)", descriptionTemplate: "Medium snow removal service for moderate accumulations" },
+      { name: "Heavy Snow Service (15cm+)", descriptionTemplate: "Heavy snow removal service for significant accumulations" },
+      { name: "Ice Dam Prevention", descriptionTemplate: "Ice dam prevention and removal services to protect your property" },
+      { name: "Snow Hauling & Disposal", descriptionTemplate: "Snow hauling and off-site disposal services" },
+      { name: "24/7 Emergency Service", descriptionTemplate: "Round-the-clock emergency snow removal services" },
+      { name: "Seasonal Contract", descriptionTemplate: "Comprehensive seasonal snow removal contract services" },
+      { name: "Per Visit Service", descriptionTemplate: "On-demand per-visit snow removal services" },
+    ],
+    pricingStructure: "seasonal",
+    communicationStyle: "Reliable and straightforward",
+  },
+  pupawalk: {
+    id: "pupawalk",
+    name: "PUPAWALK PET SERVICES",
+    domain: "pupawalk.com",
+    description: "Professional Pet Care Services",
+    brand: {
+      primaryColor: "#dc2626",
+      secondaryColor: "#9ca3af",
+      logo: "/logos/pupawalk-logo.png",
+      favicon: "/favicons/pupawalk.ico",
+    },
+    businessType: "Pet Services",
+    defaultEmailSignature: "Pawsitively yours,\nPUPAWALK PET SERVICES Team\npupawalk.com",
+    serviceTypes: [
+      { name: "Dog Walking - 15 min", descriptionTemplate: "Professional 15-minute dog walking service" },
+      { name: "Dog Walking - 30 min", descriptionTemplate: "Professional 30-minute dog walking service" },
+      { name: "Dog Walking - 60 min", descriptionTemplate: "Professional 60-minute dog walking service" },
+      { name: "Group Dog Walking", descriptionTemplate: "Supervised group dog walking and socialization service" },
+      { name: "Pet Sitting - In-Home", descriptionTemplate: "Professional in-home pet sitting and care services" },
+      { name: "Pet Sitting - Overnight", descriptionTemplate: "Overnight pet sitting service with comprehensive care" },
+      { name: "Pet Sitting - Weekend", descriptionTemplate: "Weekend pet sitting and care services" },
+      { name: "Drop-in Visits", descriptionTemplate: "Convenient drop-in pet care visit service" },
+      { name: "Dog Boarding - Home", descriptionTemplate: "Home-based dog boarding service in a safe, comfortable environment" },
+      { name: "Dog Boarding - Facility", descriptionTemplate: "Professional facility-based dog boarding services" },
+      { name: "Dog Daycare", descriptionTemplate: "Full-day dog daycare with supervised play and care" },
+      { name: "Cat Sitting", descriptionTemplate: "Professional cat sitting and care services" },
+      { name: "Small Animal Care", descriptionTemplate: "Specialized care services for small animals" },
+      { name: "Pet Transportation", descriptionTemplate: "Safe and reliable pet transportation services" },
+      { name: "Vet Visit Transport", descriptionTemplate: "Veterinary appointment transportation and accompaniment services" },
+      { name: "Basic Grooming", descriptionTemplate: "Basic grooming services for your pet's hygiene and comfort" },
+      { name: "Bath & Brush", descriptionTemplate: "Professional bathing and brushing services" },
+      { name: "Nail Trimming", descriptionTemplate: "Safe and gentle nail trimming services" },
+      { name: "Ear Cleaning", descriptionTemplate: "Professional ear cleaning and hygiene services" },
+      { name: "Puppy Care", descriptionTemplate: "Specialized care services for puppies with extra attention and training support" },
+      { name: "Senior Pet Care", descriptionTemplate: "Gentle, specialized care services for senior pets" },
+      { name: "Special Needs Pet Care", descriptionTemplate: "Customized care services for pets with special needs" },
+      { name: "Medication Administration", descriptionTemplate: "Professional medication administration services for your pet" },
+      { name: "Dog Training - Basic Obedience", descriptionTemplate: "Basic obedience training services for dogs" },
+      { name: "House Sitting with Pet Care", descriptionTemplate: "Combined house sitting and pet care services" },
+      { name: "Holiday Pet Care", descriptionTemplate: "Dedicated pet care services during holidays and special occasions" },
+      { name: "Emergency Pet Care", descriptionTemplate: "Emergency pet care services for urgent situations" },
+    ],
+    pricingStructure: "hourly",
+    communicationStyle: "Warm and caring",
+  },
+  creative: {
+    id: "creative",
+    name: "Evangelo Sommer Development",
+    domain: "evangelosommer.com",
+    description: "Web Development & Digital Solutions",
+    brand: {
+      primaryColor: "#D4AF37",
+      secondaryColor: "#64748b",
+      logo: "/logos/evangelo-logo.png",
+      favicon: "/favicons/evangelo.ico",
+    },
+    businessType: "Web Development",
+    defaultEmailSignature:
+      "Best regards,\nEvangelo Sommer\nWeb Developer\nevangelosommer.com",
+    serviceTypes: [
+      { name: "Web Development", descriptionTemplate: "Custom web development services including design, implementation, and deployment" },
+      { name: "E-commerce", descriptionTemplate: "E-commerce solution development and integration services" },
+      { name: "Digital Strategy", descriptionTemplate: "Strategic digital consulting and planning services" },
+      { name: "Consulting", descriptionTemplate: "Professional web development and technology consulting services" },
+    ],
+    pricingStructure: "project",
+    communicationStyle: "Professional and technical",
+  },
+  // Legacy aliases for backward compatibility
+  landscaping: {
+    id: "landscaping",
+    name: "WOODGREEN LANDSCAPING",
+    domain: "woodgreenlandscaping.com",
+    description: "Professional Landscaping Services",
+    brand: {
+      primaryColor: "#059669",
+      secondaryColor: "#6b7280",
+      logo: "/logos/woodgreen-logo.png",
+      favicon: "/favicons/woodgreen.ico",
+    },
+    businessType: "Landscaping",
+    defaultEmailSignature: "Best regards,\nWOODGREEN LANDSCAPING Team\nwoodgreenlandscaping.com",
+    serviceTypes: [
+      { name: "Lawn Mowing & Edging", descriptionTemplate: "Professional lawn mowing and precision edging services for a pristine appearance" },
+      { name: "Fall Cleanup", descriptionTemplate: "Comprehensive fall cleanup including leaf removal and seasonal property preparation" },
+      { name: "Spring Cleanup", descriptionTemplate: "Complete spring cleanup and lawn preparation services" },
+      { name: "Hedge Trimming", descriptionTemplate: "Professional hedge trimming and shaping services" },
+      { name: "Weed Removal", descriptionTemplate: "Thorough weed removal and prevention services" },
+      { name: "Sod Laying", descriptionTemplate: "Professional sod installation for instant lawn coverage" },
+      { name: "Lawn Levelling", descriptionTemplate: "Expert lawn levelling and grading services" },
+      { name: "Aeration", descriptionTemplate: "Core aeration services to improve soil health and lawn vitality" },
+      { name: "Dethatching", descriptionTemplate: "Professional dethatching services to remove dead grass and promote healthy growth" },
+      { name: "Fertilization", descriptionTemplate: "Professional lawn fertilization and nutrient application services" },
+      { name: "Mulching", descriptionTemplate: "Quality mulch installation for garden beds and landscape areas" },
+      { name: "Pruning & Trimming", descriptionTemplate: "Expert pruning and trimming services for trees and shrubs" },
+      { name: "Tree Services", descriptionTemplate: "Professional tree care, maintenance, and removal services" },
+      { name: "Garden Design", descriptionTemplate: "Custom garden design and planning services" },
+      { name: "Hardscaping", descriptionTemplate: "Professional hardscaping installation including patios, walkways, and retaining walls" },
+      { name: "Irrigation Installation & Repair", descriptionTemplate: "Irrigation system installation, maintenance, and repair services" },
+      { name: "Pest Control", descriptionTemplate: "Lawn and garden pest control services" },
+      { name: "Overseeding", descriptionTemplate: "Professional overseeding services to thicken and revitalize lawns" },
+      { name: "Landscape Design & Installation", descriptionTemplate: "Complete landscape design and installation services" },
+      { name: "Seasonal Maintenance", descriptionTemplate: "Comprehensive seasonal landscape maintenance services" },
+    ],
+    pricingStructure: "project",
+    communicationStyle: "Friendly and professional",
+  },
+  "snow-removal": {
+    id: "snow-removal",
+    name: "White Knight Snow Service",
+    domain: "whiteknightsnowservice.com",
+    description: "Reliable Snow Removal Services",
+    brand: {
+      primaryColor: "#1e40af",
+      secondaryColor: "#9ca3af",
+      logo: "/logos/whiteknight-logo.png",
+      favicon: "/favicons/whiteknight.ico",
+    },
+    businessType: "Snow Removal",
+    defaultEmailSignature: "Stay safe,\nWhite Knight Snow Service\nwhiteknightsnowservice.com",
+    serviceTypes: [
+      { name: "Snow Removal - Single Driveway", descriptionTemplate: "Professional snow removal service for single-width driveways" },
+      { name: "Snow Removal - Double Driveway", descriptionTemplate: "Professional snow removal service for double-width driveways" },
+      { name: "Snow Removal - Triple Driveway", descriptionTemplate: "Professional snow removal service for triple-width driveways" },
+      { name: "Sidewalk Clearing", descriptionTemplate: "Thorough sidewalk snow clearing and ice removal services" },
+      { name: "Parking Lot Plowing", descriptionTemplate: "Commercial parking lot snow plowing and clearing services" },
+      { name: "Commercial Snow Removal", descriptionTemplate: "Comprehensive commercial property snow removal services" },
+      { name: "Sodium Chloride (Rock Salt) Application", descriptionTemplate: "Professional rock salt application for ice prevention and melting" },
+      { name: "Calcium Chloride De-icing", descriptionTemplate: "Calcium chloride de-icing treatment for effective ice control" },
+      { name: "Magnesium Chloride De-icing", descriptionTemplate: "Eco-friendly magnesium chloride de-icing application" },
+      { name: "Sand Application", descriptionTemplate: "Sand application for improved traction on icy surfaces" },
+      { name: "Salt/Sand Mix Application", descriptionTemplate: "Strategic salt and sand mixture application for optimal winter surface treatment" },
+      { name: "Pre-Storm Salting", descriptionTemplate: "Preventative pre-storm salting services to minimize ice formation" },
+      { name: "Post-Storm De-icing", descriptionTemplate: "Post-storm de-icing and surface treatment services" },
+      { name: "Roof Snow Removal", descriptionTemplate: "Safe and professional roof snow removal to prevent damage" },
+      { name: "Extensive Snow Removal (12+ inches)", descriptionTemplate: "Heavy-duty snow removal service for accumulations over 12 inches" },
+      { name: "Light Snow Service (1-5cm)", descriptionTemplate: "Efficient light snow clearing service for minor accumulations" },
+      { name: "Medium Snow Service (5-15cm)", descriptionTemplate: "Medium snow removal service for moderate accumulations" },
+      { name: "Heavy Snow Service (15cm+)", descriptionTemplate: "Heavy snow removal service for significant accumulations" },
+      { name: "Ice Dam Prevention", descriptionTemplate: "Ice dam prevention and removal services to protect your property" },
+      { name: "Snow Hauling & Disposal", descriptionTemplate: "Snow hauling and off-site disposal services" },
+      { name: "24/7 Emergency Service", descriptionTemplate: "Round-the-clock emergency snow removal services" },
+      { name: "Seasonal Contract", descriptionTemplate: "Comprehensive seasonal snow removal contract services" },
+      { name: "Per Visit Service", descriptionTemplate: "On-demand per-visit snow removal services" },
+    ],
+    pricingStructure: "seasonal",
+    communicationStyle: "Reliable and straightforward",
+  },
+  "pet-services": {
+    id: "pet-services",
+    name: "PUPAWALK PET SERVICES",
+    domain: "pupawalk.com",
+    description: "Professional Pet Care Services",
+    brand: {
+      primaryColor: "#dc2626",
+      secondaryColor: "#9ca3af",
+      logo: "/logos/pupawalk-logo.png",
+      favicon: "/favicons/pupawalk.ico",
+    },
+    businessType: "Pet Services",
+    defaultEmailSignature: "Pawsitively yours,\nPUPAWALK PET SERVICES Team\npupawalk.com",
+    serviceTypes: [
+      { name: "Dog Walking - 15 min", descriptionTemplate: "Professional 15-minute dog walking service" },
+      { name: "Dog Walking - 30 min", descriptionTemplate: "Professional 30-minute dog walking service" },
+      { name: "Dog Walking - 60 min", descriptionTemplate: "Professional 60-minute dog walking service" },
+      { name: "Group Dog Walking", descriptionTemplate: "Supervised group dog walking and socialization service" },
+      { name: "Pet Sitting - In-Home", descriptionTemplate: "Professional in-home pet sitting and care services" },
+      { name: "Pet Sitting - Overnight", descriptionTemplate: "Overnight pet sitting service with comprehensive care" },
+      { name: "Pet Sitting - Weekend", descriptionTemplate: "Weekend pet sitting and care services" },
+      { name: "Drop-in Visits", descriptionTemplate: "Convenient drop-in pet care visit service" },
+      { name: "Dog Boarding - Home", descriptionTemplate: "Home-based dog boarding service in a safe, comfortable environment" },
+      { name: "Dog Boarding - Facility", descriptionTemplate: "Professional facility-based dog boarding services" },
+      { name: "Dog Daycare", descriptionTemplate: "Full-day dog daycare with supervised play and care" },
+      { name: "Cat Sitting", descriptionTemplate: "Professional cat sitting and care services" },
+      { name: "Small Animal Care", descriptionTemplate: "Specialized care services for small animals" },
+      { name: "Pet Transportation", descriptionTemplate: "Safe and reliable pet transportation services" },
+      { name: "Vet Visit Transport", descriptionTemplate: "Veterinary appointment transportation and accompaniment services" },
+      { name: "Basic Grooming", descriptionTemplate: "Basic grooming services for your pet's hygiene and comfort" },
+      { name: "Bath & Brush", descriptionTemplate: "Professional bathing and brushing services" },
+      { name: "Nail Trimming", descriptionTemplate: "Safe and gentle nail trimming services" },
+      { name: "Ear Cleaning", descriptionTemplate: "Professional ear cleaning and hygiene services" },
+      { name: "Puppy Care", descriptionTemplate: "Specialized care services for puppies with extra attention and training support" },
+      { name: "Senior Pet Care", descriptionTemplate: "Gentle, specialized care services for senior pets" },
+      { name: "Special Needs Pet Care", descriptionTemplate: "Customized care services for pets with special needs" },
+      { name: "Medication Administration", descriptionTemplate: "Professional medication administration services for your pet" },
+      { name: "Dog Training - Basic Obedience", descriptionTemplate: "Basic obedience training services for dogs" },
+      { name: "House Sitting with Pet Care", descriptionTemplate: "Combined house sitting and pet care services" },
+      { name: "Holiday Pet Care", descriptionTemplate: "Dedicated pet care services during holidays and special occasions" },
+      { name: "Emergency Pet Care", descriptionTemplate: "Emergency pet care services for urgent situations" },
+    ],
+    pricingStructure: "hourly",
+    communicationStyle: "Warm and caring",
+  },
+};
+
+export function getServiceById(serviceId: string): Service | null {
+  return serviceConfig[serviceId] || null;
+}
+
+export function getAllServices(): Service[] {
+  // Return only the primary service IDs to avoid duplicates
+  const primaryServiceIds = ['portfolio', 'woodgreen', 'whiteknight', 'pupawalk', 'creative'];
+  return primaryServiceIds.map(id => serviceConfig[id]).filter(Boolean);
+}
+
+export function getServiceByDomain(domain: string): Service | null {
+  return (
+    Object.values(serviceConfig).find((service) => service.domain === domain) ||
+    null
+  );
+}

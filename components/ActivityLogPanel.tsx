@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 const activityLog = [
   "Signed in on iPhone 15 Pro (Toronto)",
@@ -12,6 +13,9 @@ const activityLog = [
 ];
 
 export default function ActivityLogPanel() {
+  const { tokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
   return (
     <ScrollView contentContainerStyle={styles.panel}>
       <Text style={styles.heading}>Activity log</Text>
@@ -24,27 +28,25 @@ export default function ActivityLogPanel() {
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: "#0d111f",
-    marginHorizontal: 28,
-    marginTop: 120,
-    borderRadius: 28,
-    padding: 20,
-  },
-  heading: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#f5f6ff",
-    marginBottom: 12,
-  },
-  row: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1f2335",
-  },
-  entry: {
-    color: "#cbd3f4",
-    fontSize: 14,
-  },
-});
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
+    panel: {
+      backgroundColor: tokens.surface,
+      padding: 20,
+    },
+    heading: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: tokens.textPrimary,
+      marginBottom: 12,
+    },
+    row: {
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: tokens.border,
+    },
+    entry: {
+      color: tokens.textSecondary,
+      fontSize: 14,
+    },
+  });

@@ -1,0 +1,288 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+
+// In-memory progress tracking (in production, use Redis or database)
+const progressStore = new Map<string, ProcessingProgress>();
+
+interface ProcessingProgress {
+  id: string;
+  userId: string;
+  clientId: string;
+  stage: 'parsing' | 'recovery' | 'processing' | 'storing' | 'complete' | 'error';
+  progress: number; // 0-100
+  message: string;
+  startTime: number;
+  currentTime: number;
+  estimatedCompletion?: number;
+  details?: {
+    totalRows?: number;
+    processedRows?: number;
+    recoveredRows?: number;
+    extractedMessages?: number;
+    errors?: string[];
+    warnings?: string[];
+  };
+}
+
+/**
+ * Get processing progress for a specific processing ID
+ */
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { id: processingId } = await context.params;
+    const progress = progressStore.get(processingId);
+
+    if (!progress) {
+      return NextResponse.json(
+        { error: 'Processing ID not found' },
+        { status: 404 }
+      );
+    }
+
+    // Verify user owns this processing request
+    if (progress.userId !== session.user?.email) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    // Calculate elapsed time and estimated completion
+    const elapsedTime = Date.now() - progress.startTime;
+    const progressPercentage = progress.progress;
+    
+    let estimatedCompletion: number | undefined;
+    if (progressPercentage > 0 && progressPercentage < 100) {
+      const estimatedTotal = (elapsedTime / progressPercentage) * 100;
+      estimatedCompletion = progress.startTime + estimatedTotal;
+    }
+
+    return NextResponse.json({
+      ...progress,
+      elapsedTime,
+      estimatedCompletion
+    });
+
+  } catch (error) {
+    console.error('Progress tracking error:', error);
+    return NextResponse.json(
+      { error: 'Failed to get progress information' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Update processing progress (internal API for processing stages)
+ */
+export async function PUT(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { id: processingId } = await context.params;
+    const updateData = await request.json();
+
+    const currentProgress = progressStore.get(processingId);
+    if (!currentProgress) {
+      // Create new progress entry
+      const newProgress: ProcessingProgress = {
+        id: processingId,
+        userId: session.user?.email || '',
+        clientId: updateData.clientId,
+        stage: updateData.stage || 'parsing',
+        progress: updateData.progress || 0,
+        message: updateData.message || 'Starting...',
+        startTime: Date.now(),
+        currentTime: Date.now(),
+        details: updateData.details || {}
+      };
+      progressStore.set(processingId, newProgress);
+      return NextResponse.json(newProgress);
+    }
+
+    // Verify user owns this processing request
+    if (currentProgress.userId !== session.user?.email) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    // Update existing progress
+    const updatedProgress: ProcessingProgress = {
+      ...currentProgress,
+      stage: updateData.stage || currentProgress.stage,
+      progress: updateData.progress !== undefined ? updateData.progress : currentProgress.progress,
+      message: updateData.message || currentProgress.message,
+      currentTime: Date.now(),
+      details: {
+        ...currentProgress.details,
+        ...updateData.details
+      }
+    };
+
+    progressStore.set(processingId, updatedProgress);
+
+    // Auto-cleanup completed or error states after 30 minutes
+    if (updatedProgress.stage === 'complete' || updatedProgress.stage === 'error') {
+      setTimeout(() => {
+        progressStore.delete(processingId);
+      }, 30 * 60 * 1000);
+    }
+
+    return NextResponse.json(updatedProgress);
+
+  } catch (error) {
+    console.error('Progress update error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update progress' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Cancel processing (cleanup)
+ */
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { id: processingId } = await context.params;
+    const progress = progressStore.get(processingId);
+
+    if (!progress) {
+      return NextResponse.json(
+        { error: 'Processing ID not found' },
+        { status: 404 }
+      );
+    }
+
+    // Verify user owns this processing request
+    if (progress.userId !== session.user?.email) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    // Remove from store
+    progressStore.delete(processingId);
+
+    return NextResponse.json({
+      message: 'Processing cancelled and cleaned up',
+      processingId
+    });
+
+  } catch (error) {
+    console.error('Progress cleanup error:', error);
+    return NextResponse.json(
+      { error: 'Failed to cleanup progress' },
+      { status: 500 }
+    );
+  }
+}
+
+// Utility functions for use by other API routes (not exported from route file)
+class ProgressTracker {
+  static create(
+    processingId: string,
+    userId: string,
+    clientId: string,
+    initialMessage: string = 'Initializing...'
+  ): void {
+    const progress: ProcessingProgress = {
+      id: processingId,
+      userId,
+      clientId,
+      stage: 'parsing',
+      progress: 0,
+      message: initialMessage,
+      startTime: Date.now(),
+      currentTime: Date.now(),
+      details: {}
+    };
+    progressStore.set(processingId, progress);
+  }
+
+  static update(
+    processingId: string,
+    updates: Partial<Omit<ProcessingProgress, 'id' | 'userId' | 'startTime'>>
+  ): void {
+    const current = progressStore.get(processingId);
+    if (current) {
+      const updated: ProcessingProgress = {
+        ...current,
+        ...updates,
+        currentTime: Date.now(),
+        details: {
+          ...current.details,
+          ...updates.details
+        }
+      };
+      progressStore.set(processingId, updated);
+    }
+  }
+
+  static complete(processingId: string, message: string = 'Processing complete!'): void {
+    ProgressTracker.update(processingId, {
+      stage: 'complete',
+      progress: 100,
+      message
+    });
+  }
+
+  static error(processingId: string, message: string, error?: string): void {
+    ProgressTracker.update(processingId, {
+      stage: 'error',
+      progress: -1,
+      message,
+      details: {
+        errors: error ? [error] : []
+      }
+    });
+  }
+
+  static get(processingId: string): ProcessingProgress | undefined {
+    return progressStore.get(processingId);
+  }
+
+  static cleanup(processingId: string): void {
+    progressStore.delete(processingId);
+  }
+
+  static getActiveProcesses(userId: string): ProcessingProgress[] {
+    return Array.from(progressStore.values())
+      .filter(p => p.userId === userId && p.stage !== 'complete' && p.stage !== 'error');
+  }
+}

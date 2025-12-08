@@ -8,6 +8,7 @@ export { conversationsApi } from './conversations';
 export { eventsApi } from './events';
 export { billingApi } from './billing';
 export { testimonialsApi } from './testimonials';
+export { participantsApi } from './participants';
 
 // Re-export API client and types for convenience
 export { apiClient } from '../client';

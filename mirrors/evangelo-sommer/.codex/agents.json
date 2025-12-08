@@ -1,0 +1,72 @@
+[
+  {
+    "name": "api-route-implementer",
+    "description": "API endpoint implementation",
+    "path": ".codex/agents/api-route-implementer.md"
+  },
+  {
+    "name": "code-reviewer",
+    "description": "Code quality and security review",
+    "path": ".codex/agents/code-reviewer.md"
+  },
+  {
+    "name": "config-updater",
+    "description": "Configuration management",
+    "path": ".codex/agents/config-updater.md"
+  },
+  {
+    "name": "crm-research-architect",
+    "description": "CRM pattern research",
+    "path": ".codex/agents/crm-research-architect.md"
+  },
+  {
+    "name": "docs-updater",
+    "description": "Documentation maintenance",
+    "path": ".codex/agents/docs-updater.md"
+  },
+  {
+    "name": "prisma-schema-implementer",
+    "description": "Database schema implementation",
+    "path": ".codex/agents/prisma-schema-implementer.md"
+  },
+  {
+    "name": "dual-site-architecture-researcher",
+    "description": "Dual-purpose site research",
+    "path": ".codex/agents/dual-site-architecture-researcher.md"
+  },
+  {
+    "name": "tech-stack-researcher",
+    "description": "Technology research",
+    "path": ".codex/agents/tech-stack-researcher.md"
+  },
+  {
+    "name": "ui-threejs-implementer",
+    "description": "Three.js + React UI implementation",
+    "path": ".codex/agents/ui-threejs-implementer.md"
+  },
+  {
+    "name": "workflow-optimizer",
+    "description": "Business process optimization",
+    "path": ".codex/agents/workflow-optimizer.md"
+  },
+  {
+    "name": "lint",
+    "description": "Run linting and fix issues",
+    "path": ".codex/agents/lint.md"
+  },
+  {
+    "name": "migrate",
+    "description": "Database migration management",
+    "path": ".codex/agents/migrate.md"
+  },
+  {
+    "name": "test",
+    "description": "Run tests and fix failures",
+    "path": ".codex/agents/test.md"
+  },
+  {
+    "name": "type-check",
+    "description": "TypeScript type checking and fixes",
+    "path": ".codex/agents/type-check.md"
+  }
+]

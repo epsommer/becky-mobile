@@ -2,6 +2,8 @@
 
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 const navigation = [
   "Dashboard",
@@ -22,12 +24,23 @@ const serviceLines = [
 
 interface SidebarPanelProps {
   onSelect?: (tab: string) => void;
+  onClose?: () => void;
 }
 
-export default function SidebarPanel({ onSelect }: SidebarPanelProps) {
+export default function SidebarPanel({ onSelect, onClose }: SidebarPanelProps) {
+  const { tokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
   return (
     <View style={styles.panel}>
-      <Text style={styles.heading}>CRM Navigation</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.heading}>CRM Navigation</Text>
+        {onClose && (
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Ionicons name="close" size={16} color={tokens.textPrimary} />
+          </TouchableOpacity>
+        )}
+      </View>
       {navigation.map((item) => (
         <TouchableOpacity
           key={item}
@@ -47,31 +60,47 @@ export default function SidebarPanel({ onSelect }: SidebarPanelProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: "#0d111f",
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#1f2335",
-  },
-  heading: {
-    color: "#f5f6ff",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 16,
-  },
-  subheading: {
-    marginTop: 16,
-  },
-  item: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#151a29",
-  },
-  label: {
-    color: "#c5cff9",
-    fontSize: 14,
-    textTransform: "uppercase",
-  },
-});
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
+    panel: {
+      backgroundColor: tokens.surface,
+      borderRadius: 24,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: tokens.border,
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 16,
+    },
+    heading: {
+      color: tokens.textPrimary,
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    closeButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: tokens.surface,
+    },
+    subheading: {
+      marginTop: 16,
+    },
+    item: {
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: tokens.border,
+    },
+    label: {
+      color: tokens.textSecondary,
+      fontSize: 14,
+      textTransform: "uppercase",
+    },
+  });

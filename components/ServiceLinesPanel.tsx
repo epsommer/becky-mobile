@@ -2,6 +2,7 @@
 
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 const serviceLines = [
   { title: "Service Lines", detail: "Landscaping · Snow removal · Creative", extra: "4 active" },
@@ -10,6 +11,9 @@ const serviceLines = [
 ];
 
 export default function ServiceLinesPanel() {
+  const { tokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
   return (
     <View style={styles.panel}>
       <Text style={styles.heading}>Service focus</Text>
@@ -29,56 +33,58 @@ export default function ServiceLinesPanel() {
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    marginTop: 16,
-    borderRadius: 18,
-    backgroundColor: "#0f1322",
-    borderWidth: 1,
-    borderColor: "#1b2134",
-    padding: 16,
-  },
-  heading: {
-    color: "#f5f6ff",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  row: {
-    borderTopWidth: 1,
-    borderTopColor: "#151a29",
-    paddingVertical: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  textBlock: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  title: {
-    color: "#cbd3f4",
-    fontWeight: "600",
-  },
-  detail: {
-    color: "#9cb3ff",
-    fontSize: 12,
-    marginTop: 4,
-  },
-  extra: {
-    color: "#8fd7ff",
-    fontSize: 11,
-    textTransform: "uppercase",
-    alignSelf: "center",
-  },
-  button: {
-    marginTop: 16,
-    backgroundColor: "#5c93ff",
-    borderRadius: 14,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#0c1221",
-    fontWeight: "700",
-  },
-});
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
+    panel: {
+      width: '100%',
+      alignSelf: 'stretch',
+    },
+    heading: {
+      color: tokens.textPrimary,
+      fontSize: 16,
+      fontFamily: 'Bytesized-Regular',
+      fontWeight: "700",
+      marginBottom: 12,
+    },
+    row: {
+      borderTopWidth: 1,
+      borderTopColor: tokens.border,
+      paddingVertical: 12,
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    textBlock: {
+      flex: 1,
+      paddingRight: 12,
+    },
+    title: {
+      color: tokens.textSecondary,
+      fontFamily: 'lores-9-wide',
+      fontWeight: "600",
+    },
+    detail: {
+      color: tokens.highlight,
+      fontSize: 12,
+      fontFamily: 'lores-9-wide',
+      marginTop: 4,
+    },
+    extra: {
+      color: tokens.accent,
+      fontSize: 11,
+      fontFamily: 'lores-9-wide',
+      textTransform: "uppercase",
+      alignSelf: "center",
+    },
+    button: {
+      marginTop: 16,
+      backgroundColor: tokens.accent,
+      borderRadius: 14,
+      paddingVertical: 10,
+      alignItems: "center",
+    },
+    buttonText: {
+      color: tokens.background,
+      fontFamily: 'lores-9-wide',
+      fontWeight: "700",
+    },
+  });

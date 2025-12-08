@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Navigation</title>
+</head>
+<body>
+    <h1>Navigation Debug Test</h1>
+    
+    <p>Open browser console and test navigation by opening:</p>
+    <p><strong>http://localhost:3001/time-manager</strong></p>
+    
+    <p>In browser console, test these commands:</p>
+    <pre>
+// Test if ViewManager context exists
+console.log('ViewManager state:', window.viewManagerDebug)
+
+// Test manual navigation
+const buttons = document.querySelectorAll('button[aria-label*="Navigate"]')
+console.log('Navigation buttons found:', buttons.length)
+buttons.forEach((btn, i) => console.log(`Button ${i}:`, btn.textContent, btn.getAttribute('aria-label')))
+
+// Test click events
+const prevButton = document.querySelector('button[aria-label*="previous"]')
+const nextButton = document.querySelector('button[aria-label*="next"]')
+console.log('Previous button:', prevButton)
+console.log('Next button:', nextButton)
+
+// Test if buttons are clickable
+if (prevButton) {
+    console.log('Previous button click handler:', prevButton.onclick)
+    console.log('Previous button event listeners:', getEventListeners(prevButton))
+}
+    </pre>
+    
+    <p>Also check:</p>
+    <ul>
+        <li>Are there any console errors?</li>
+        <li>Do the buttons have proper click handlers?</li>
+        <li>Is the ViewManager context working?</li>
+        <li>Are the buttons visible and not covered by other elements?</li>
+    </ul>
+    
+</body>
+</html>

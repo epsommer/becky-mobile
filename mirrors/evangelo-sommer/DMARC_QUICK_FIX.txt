@@ -1,0 +1,49 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    DMARC QUICK FIX - DO THIS NOW                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+✅ STEP 1: LOG INTO DNS (Bluehost)
+   → https://my.bluehost.com/
+   → Navigate to: Domains → Zone Editor
+   → Select: evangelosommer.com
+
+✅ STEP 2: FIND _dmarc TXT RECORD
+   → Look for: _dmarc.evangelosommer.com
+   → Current value: v=DMARC1; p=none;
+
+✅ STEP 3: UPDATE TO THIS (copy/paste):
+   v=DMARC1; p=none; rua=mailto:dmarc-reports@evangelosommer.com; pct=100; adkim=r; aspf=r
+
+✅ STEP 4: SET UP EMAIL FORWARDING
+   → cPanel → Email → Forwarders
+   → Create: dmarc-reports@evangelosommer.com → support@evangelosommer.com
+
+✅ STEP 5: VERIFY (wait 30 mins, then run):
+   dig TXT _dmarc.evangelosommer.com +short
+
+✅ STEP 6: CHECK MXTOOLBOX (should now show "monitoring"):
+   → https://mxtoolbox.com/dmarc.aspx
+   → Enter: evangelosommer.com
+
+════════════════════════════════════════════════════════════════════════════════
+
+📧 BONUS FIX: Reduce SPF Lookups (also do this now)
+
+FIND: TXT record for evangelosommer.com (root domain, no _dmarc)
+CURRENT: v=spf1 a mx include:sendgrid.net include:websitewelcome.com ~all
+CHANGE TO: v=spf1 include:sendgrid.net ~all
+
+This reduces lookups from 11 → 3 ✅
+
+════════════════════════════════════════════════════════════════════════════════
+
+⏰ TIMELINE:
+   NOW:     Update DMARC + SPF (5 minutes)
+   Week 1:  Monitor reports (p=none)
+   Week 2:  Upgrade to p=quarantine at 10%, then 100%
+   Week 3:  Monitor at p=quarantine 100%
+   Week 4:  Upgrade to p=reject (full protection)
+
+════════════════════════════════════════════════════════════════════════════════
+
+📖 See DMARC_UPGRADE_GUIDE.md for full details and monitoring instructions

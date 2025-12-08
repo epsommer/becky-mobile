@@ -1,0 +1,72 @@
+[
+  {
+    "name": "api-route-implementer",
+    "description": "API endpoint implementation",
+    "path": ".claude/agents/api-route-implementer.md"
+  },
+  {
+    "name": "code-reviewer",
+    "description": "Code quality and security review",
+    "path": ".claude/agents/code-reviewer.md"
+  },
+  {
+    "name": "config-updater",
+    "description": "Configuration management",
+    "path": ".claude/agents/config-updater.md"
+  },
+  {
+    "name": "crm-research-architect",
+    "description": "CRM pattern research",
+    "path": ".claude/agents/crm-research-architect.md"
+  },
+  {
+    "name": "docs-updater",
+    "description": "Documentation maintenance",
+    "path": ".claude/agents/docs-updater.md"
+  },
+  {
+    "name": "prisma-schema-implementer",
+    "description": "Database schema implementation",
+    "path": ".claude/agents/prisma-schema-implementer.md"
+  },
+  {
+    "name": "dual-site-architecture-researcher",
+    "description": "Dual-purpose site research",
+    "path": ".claude/agents/dual-site-architecture-researcher.md"
+  },
+  {
+    "name": "tech-stack-researcher",
+    "description": "Technology research",
+    "path": ".claude/agents/tech-stack-researcher.md"
+  },
+  {
+    "name": "ui-threejs-implementer",
+    "description": "Three.js + React UI implementation",
+    "path": ".claude/agents/ui-threejs-implementer.md"
+  },
+  {
+    "name": "workflow-optimizer",
+    "description": "Business process optimization",
+    "path": ".claude/agents/workflow-optimizer.md"
+  },
+  {
+    "name": "lint",
+    "description": "Run linting and fix issues",
+    "path": ".claude/agents/lint.md"
+  },
+  {
+    "name": "migrate",
+    "description": "Database migration management",
+    "path": ".claude/agents/migrate.md"
+  },
+  {
+    "name": "test",
+    "description": "Run tests and fix failures",
+    "path": ".claude/agents/test.md"
+  },
+  {
+    "name": "type-check",
+    "description": "TypeScript type checking and fixes",
+    "path": ".claude/agents/type-check.md"
+  }
+]

@@ -1,0 +1,1384 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enhanced Participant model (extends the existing Participant interface)
+model Participant {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  role      ParticipantRole @default(CLIENT)
+  
+  // Contact preferences
+  contactPreferences Json? // ContactPreferences object
+  
+  // Service profile
+  services  Json? // ServiceType[] - stored as JSON array
+  
+  // External system IDs for integration
+  bixbyContactId   String?
+  googleContactId  String?
+  
+  // Relationships
+  organizedAppointments Appointment[] @relation("OrganizerAppointments")
+  participantAppointments AppointmentParticipant[]
+  calendarIntegrations CalendarIntegration[]
+  communications Communication[]
+  clientRecords  ClientRecord[] // One participant can have multiple client records
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([email])
+  @@unique([phone])
+  @@index([phone])
+  @@index([email])
+}
+
+// Enhanced Appointment model with multi-participant support
+model Appointment {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  
+  // Timing
+  startTime   DateTime
+  endTime     DateTime
+  timezone    String   @default("America/Toronto")
+  
+  // Service details
+  service     ServiceType
+  location    String?
+  
+  // Status and management
+  status      AppointmentStatus @default(SCHEDULED)
+  
+  // Organizer (main service provider)
+  organizerId String
+  organizer   Participant @relation("OrganizerAppointments", fields: [organizerId], references: [id])
+  
+  // Multiple participants
+  participants AppointmentParticipant[]
+  
+  // External calendar integration
+  googleCalendarEventId String?
+  outlookCalendarEventId String?
+  
+  // Notifications
+  notifications NotificationLog[]
+  
+  // Voice commands that created this appointment
+  voiceCommands VoiceCommand[]
+  
+  // Voice command metadata
+  voiceCommandData Json? // Store voice command context
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([startTime])
+  @@index([service])
+  @@index([status])
+}
+
+// Junction table for appointment participants
+model AppointmentParticipant {
+  id            String @id @default(cuid())
+  appointmentId String
+  participantId String
+  
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  
+  // Participant-specific details
+  responseStatus ParticipantResponseStatus @default(NEEDS_ACTION)
+  role          ParticipantAppointmentRole @default(ATTENDEE)
+  notes         String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([appointmentId, participantId])
+}
+
+// Notification system
+model NotificationLog {
+  id            String @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  
+  type          NotificationType
+  channel       NotificationChannel
+  recipient     String // phone number or email
+  
+  status        NotificationStatus @default(PENDING)
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  
+  content       String
+  templateUsed  String?
+  
+  // Error handling
+  errorMessage  String?
+  retryCount    Int @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([appointmentId])
+  @@index([type])
+  @@index([status])
+}
+
+// Voice command integration
+model VoiceCommand {
+  id            String @id @default(cuid())
+  
+  // Voice processing
+  transcript    String
+  intent        VoiceIntent
+  confidence    Float
+  
+  // Extracted entities
+  participantName String?
+  participantPhone String?
+  service       ServiceType?
+  requestedDateTime DateTime?
+  
+  // Processing results
+  status        VoiceCommandStatus @default(PROCESSING)
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  
+  // Error handling
+  errorMessage  String?
+  
+  // Metadata
+  voiceProvider String? // 'retell_ai', 'synthflow', etc.
+  sessionId     String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([intent])
+  @@index([status])
+}
+
+// Unified Event model for calendar system - matches UnifiedEvent interface
+model Event {
+  id            String   @id @default(cuid())
+
+  // Basic event information
+  type          EventType
+  title         String
+  description   String?
+  startDateTime String
+  endDateTime   String?
+  duration      Int      // minutes
+  priority      Priority
+
+  // Client relationship
+  clientId      String?
+  clientName    String?
+  client        ClientRecord? @relation(fields: [clientId], references: [id])
+
+  // Location and notes
+  location      String?
+  notes         String?
+
+  // Multi-day and all-day support
+  isAllDay      Boolean @default(false)
+  isMultiDay    Boolean @default(false)
+
+  // Notifications
+  notifications Json? // NotificationRule[] - stored as JSON array
+
+  // Recurrence settings
+  recurrence    Json? // RecurrenceRule - stored as JSON object
+  isRecurring   Boolean @default(false)
+  parentEventId String?
+  parentEvent   Event? @relation("EventRecurrence", fields: [parentEventId], references: [id])
+  childEvents   Event[] @relation("EventRecurrence")
+
+  // Legacy compatibility fields
+  status        String?
+  service       String?
+  scheduledDate String?
+
+  // Goal-specific fields
+  goalTimeframe GoalTimeframe?
+  progressTarget Float?
+  currentProgress Float?
+
+  // Milestone-specific fields
+  deadline      String?
+  dependencies  Json? // String[] - stored as JSON array
+
+  // External calendar integration
+  googleCalendarEventId String?
+  outlookCalendarEventId String?
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([startDateTime])
+  @@index([type])
+  @@index([priority])
+  @@index([clientId])
+  @@index([isRecurring])
+  @@index([parentEventId])
+}
+
+// Household/Account model - Represents shared entity for families/households
+model Household {
+  id            String @id @default(cuid())
+  name          String // e.g., "John and Jane Doe Household"
+  accountType   HouseholdType @default(PERSONAL)
+
+  // Primary address (shared by all household members)
+  address       Json? // Address object
+
+  // Primary contact relationship
+  primaryContactId String?
+  primaryContact   ClientRecord? @relation("PrimaryContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
+
+  // Household-level information
+  notes         String?
+  tags          Json? // String[] - shared tags for the household
+
+  // Household members
+  members       ClientRecord[] @relation("HouseholdMembers")
+
+  // Billing preferences at household level
+  billingPreferences Json? // Shared billing settings
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([primaryContactId])
+  @@index([accountType])
+}
+
+// Enhanced Client Record (extends existing Client interface)
+model ClientRecord {
+  id            String @id @default(cuid())
+
+  // Link to participant (one participant can have multiple client records)
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
+
+  // Household relationship
+  householdId   String?
+  household     Household? @relation("HouseholdMembers", fields: [householdId], references: [id], onDelete: SetNull)
+
+  // Role within household
+  isPrimaryContact Boolean @default(false)
+  relationshipRole String? // "Primary Client", "Spouse", "Partner", "Son", "Daughter", "Family Member"
+
+  // This client as primary contact of households
+  primaryContactOf Household[] @relation("PrimaryContact")
+
+  // Basic info (from existing Client interface)
+  name          String
+  email         String?
+  phone         String?
+  company       String?
+  serviceId     String
+  status        ClientStatus @default(ACTIVE)
+  tags          Json? // String[] - stored as JSON array (individual tags)
+  notes         String?
+
+  // Service details
+  projectType   String?
+  serviceTypes  Json? // String[] - stored as JSON array
+  budget        Float?
+  timeline      String?
+  seasonalContract Boolean @default(false)
+  recurringService RecurringServiceType?
+
+  // Location (individual address, may differ from household address)
+  address       Json? // Address object
+
+  // Service metadata
+  metadata      Json? // Service-specific metadata
+
+  // Contact preferences
+  contactPreferences Json? // ContactPreferences object
+
+  // CRM Integration data
+  personalInfo     Json? // PersonalInfo object
+  serviceProfile   Json? // ServiceProfile object
+  billingInfo      Json? // BillingInfo object
+  relationshipData Json? // RelationshipData object
+
+  // Relationships
+  serviceHistory   ServiceRecord[]
+  serviceContracts ClientServiceContract[]
+  billingRecords   BillingRecord[]
+  communications   Communication[]
+  documents        Document[]
+  conversations    Conversation[]
+  followUps        FollowUp[]
+  events           Event[]
+  billingDocuments BillingDocument[]
+  testimonials     Testimonial[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceId])
+  @@index([status])
+  @@index([householdId])
+  @@index([isPrimaryContact])
+}
+
+// Enhanced Service History
+model ServiceRecord {
+  id            String @id @default(cuid())
+  clientId      String
+  client        ClientRecord @relation(fields: [clientId], references: [id])
+  
+  // Service Line relationship
+  serviceLineId String?
+  serviceLine   ServiceLine? @relation(fields: [serviceLineId], references: [id])
+  
+  serviceDate   DateTime
+  serviceType   ServiceType
+  serviceArea   String?
+  
+  completionStatus CompletionStatus @default(SCHEDULED)
+  notes         String?
+  followUpNeeded Boolean @default(false)
+  
+  // Enhanced Billing
+  amount        Float?
+  currency      String @default("CAD")
+  billingAmount Float? // individual service billing
+  billingDate   DateTime? // when service was billed
+  billingStatus BillingStatus @default(PENDING)
+  
+  // Relationships
+  billingRecords BillingRecord[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([clientId])
+  @@index([serviceLineId])
+  @@index([serviceType])
+  @@index([serviceDate])
+  @@index([billingStatus])
+}
+
+// Service Line Model - Represents business divisions like "White Knight Snow Service" and "Woodgreen Landscaping"
+model ServiceLine {
+  id          String @id @default(cuid())
+  name        String // e.g., "White Knight Snow Service", "Woodgreen Landscaping"
+  slug        String @unique // e.g., "whiteknight", "woodgreen"
+  description String?
+  isActive    Boolean @default(true)
+  color       String? // for UI differentiation
+  
+  // Relationships
+  serviceContracts ClientServiceContract[]
+  serviceRecords   ServiceRecord[]
+  billingRecords   BillingRecord[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([slug])
+  @@index([isActive])
+}
+
+// Enhanced Service Contract model for detailed service tracking
+model ClientServiceContract {
+  id            String @id @default(cuid())
+  clientId      String
+  client        ClientRecord @relation(fields: [clientId], references: [id])
+  
+  // Service Line relationship
+  serviceLineId String?
+  serviceLine   ServiceLine? @relation(fields: [serviceLineId], references: [id])
+  
+  // Service details (backward compatibility maintained)
+  serviceId     String       // e.g., 'woodgreen', 'whiteknight'
+  serviceName   String       // e.g., 'Woodgreen Landscaping', 'White Knight'
+  serviceCategory String     // e.g., 'Lawn Maintenance', 'Snow Removal', 'Salting/De-Icing'
+  
+  // Status and timing
+  status        ServiceContractStatus @default(ONGOING)
+  period        String?      // e.g., 'Winter 2024-2025', 'Spring-Fall 2024', 'Ongoing'
+  startDate     DateTime?
+  endDate       DateTime?
+  
+  // Contract details
+  contractValue Float?
+  frequency     ServiceFrequency?
+  notes         String?
+  isActive      Boolean @default(true)
+  isPrimary     Boolean @default(false) // indicates if this is the primary service
+  
+  // Enhanced contract details
+  billingDetails Json? // flexible billing information storage
+  seasonalInfo   Json? // seasonal contract details like "Winter 2024-2025"
+  
+  // Scheduling
+  nextScheduled DateTime?    // next scheduled service date
+  lastCompleted DateTime?    // last completed service date
+  
+  // Relationships
+  billingRecords BillingRecord[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([clientId])
+  @@index([serviceId])
+  @@index([serviceLineId])
+  @@index([status])
+  @@index([isActive])
+}
+
+// Communication Log
+model Communication {
+  id            String @id @default(cuid())
+  clientId      String
+  client        ClientRecord @relation(fields: [clientId], references: [id])
+  
+  // Link to participant if available
+  participantId String?
+  participant   Participant? @relation(fields: [participantId], references: [id])
+  
+  timestamp     DateTime
+  direction     CommunicationDirection
+  channel       CommunicationChannel
+  content       String
+  
+  purpose       CommunicationPurpose
+  actionItems   Json? // String[] - stored as JSON array
+  sentiment     SentimentLevel
+  
+  // Metadata
+  subject       String?
+  attachments   Json? // String[] - stored as JSON array
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([clientId])
+  @@index([timestamp])
+  @@index([purpose])
+}
+
+// Document management
+model Document {
+  id            String @id @default(cuid())
+  clientId      String
+  client        ClientRecord @relation(fields: [clientId], references: [id])
+  
+  name          String
+  type          DocumentType
+  status        DocumentStatus @default(DRAFT)
+  
+  fileUrl       String?
+  content       String
+  
+  // Financial details
+  amount        Float?
+  currency      String @default("CAD")
+  dueDate       DateTime?
+  sentDate      DateTime?
+  paidDate      DateTime?
+  
+  // Metadata
+  metadata      Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([clientId])
+  @@index([type])
+  @@index([status])
+}
+
+// Conversation management
+model Conversation {
+  id            String @id @default(cuid())
+  clientId      String
+  client        ClientRecord @relation(fields: [clientId], references: [id])
+  
+  title         String?
+  summary       String?
+  nextActions   Json? // String[] - stored as JSON array
+  
+  sentiment     SentimentLevel?
+  priority      PriorityLevel?
+  tags          Json? // String[] - stored as JSON array
+  status        ConversationStatus @default(ACTIVE)
+  source        ConversationSource?
+  
+  participants  Json? // String[] - stored as JSON array
+  relatedDocuments Json? // String[] - stored as JSON array
+  
+  // Messages
+  messages      Message[]
+
+  // Billing documents
+  billingDocuments BillingDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@index([priority])
+}
+
+// Message management
+model Message {
+  id            String @id @default(cuid())
+  conversationId String
+  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  role          MessageRole
+  content       String
+  timestamp     DateTime
+  type          MessageType
+  
+  // Metadata
+  metadata      Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([conversationId])
+  @@index([timestamp])
+}
+
+// Follow-up scheduling and management
+model FollowUp {
+  id            String @id @default(cuid())
+  
+  // Client relationship
+  clientId      String
+  client        ClientRecord @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  // Service relationship (optional - follow-up might be general)
+  serviceId     String?
+  
+  // Scheduling details
+  scheduledDate DateTime
+  timezone      String @default("America/Toronto")
+  duration      Int @default(60) // Duration in minutes
+  
+  // Recurrence pattern
+  recurrencePattern RecurrencePattern @default(NONE)
+  recurrenceData Json? // Store complex recurrence rules
+  
+  // Custom recurrence for flexible scheduling
+  customInterval Int? // e.g., 2 for "every 2 weeks"
+  customIntervalUnit String? // 'days', 'weeks', 'months'
+  
+  // Follow-up status and management
+  status        FollowUpStatus @default(SCHEDULED)
+  
+  // Content and outcome
+  title         String?
+  notes         String?
+  outcome       String?
+  actionItems   Json? // String[] - stored as JSON array
+  
+  // Priority and categorization
+  priority      PriorityLevel @default(MEDIUM)
+  category      FollowUpCategory @default(GENERAL)
+  
+  // Notification tracking
+  notificationsSent Json? // Track which reminders have been sent
+  nextReminderAt DateTime?
+  
+  // External calendar integration
+  googleCalendarEventId String?
+  outlookCalendarEventId String?
+  
+  // Parent follow-up for recurring series
+  parentFollowUpId String?
+  parentFollowUp   FollowUp? @relation("FollowUpRecurrence", fields: [parentFollowUpId], references: [id])
+  childFollowUps   FollowUp[] @relation("FollowUpRecurrence")
+  
+  // Related appointment if this follow-up was generated from an appointment
+  sourceAppointmentId String?
+  
+  // Notifications
+  notifications FollowUpNotification[] @relation("FollowUpNotifications")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([clientId])
+  @@index([scheduledDate])
+  @@index([status])
+  @@index([category])
+  @@index([nextReminderAt])
+}
+
+// Enhanced notification system for follow-ups
+model FollowUpNotification {
+  id            String @id @default(cuid())
+  followUpId    String
+  followUp      FollowUp @relation("FollowUpNotifications", fields: [followUpId], references: [id], onDelete: Cascade)
+  
+  type          FollowUpNotificationType
+  channel       NotificationChannel
+  recipient     String // phone number or email
+  
+  // Scheduling
+  scheduledAt   DateTime
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  
+  status        NotificationStatus @default(PENDING)
+  
+  content       String
+  templateUsed  String?
+  
+  // Error handling
+  errorMessage  String?
+  retryCount    Int @default(0)
+  maxRetries    Int @default(3)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([followUpId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+// Business configuration for follow-up scheduling
+model FollowUpConfiguration {
+  id                    String @id @default(cuid())
+  
+  // Business hours configuration
+  businessHoursStart    String @default("09:00") // HH:MM format
+  businessHoursEnd      String @default("17:00") // HH:MM format
+  workingDays          Json? // String[] - stored as JSON array
+  timezone             String @default("America/Toronto")
+  
+  // Default reminder schedules
+  defaultReminderDays  Json? // Int[] - stored as JSON array
+  
+  // Service-specific configurations
+  serviceConfigurations Json? // ServiceType -> specific configuration
+  
+  // Notification preferences
+  enableSMSReminders    Boolean @default(true)
+  enableEmailReminders  Boolean @default(true)
+  
+  // Integration settings
+  googleCalendarEnabled Boolean @default(false)
+  outlookCalendarEnabled Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Calendar Integration
+model CalendarIntegration {
+  id            String @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
+
+  provider      CalendarProvider
+  externalId    String  // Calendar ID or account ID
+
+  // Encrypted OAuth tokens (AES-256-GCM encrypted)
+  accessToken   String  // Encrypted access token
+  refreshToken  String?  // Encrypted refresh token
+  expiresAt     DateTime?  // Token expiration timestamp
+
+  // Calendar details
+  calendarName  String?  // Display name of the calendar
+  calendarEmail String?  // Email associated with calendar
+
+  // Integration status
+  isActive      Boolean @default(true)
+  lastSyncAt    DateTime?
+  lastSyncError String?  // Last error message if sync failed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([participantId, provider])
+  @@index([participantId])
+  @@index([isActive])
+}
+
+// Enums
+
+// Event system enums (matching EventCreationModal.tsx interface)
+enum EventType {
+  EVENT
+  TASK
+  GOAL
+  MILESTONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum GoalTimeframe {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum ParticipantRole {
+  CLIENT
+  SERVICE_PROVIDER
+  ADMIN
+  TEAM_MEMBER
+}
+
+enum ServiceType {
+  LAWN_CARE
+  LANDSCAPING
+  MAINTENANCE
+  SNOW_REMOVAL
+  EMERGENCY
+  CONSULTATION
+  DESIGN
+  INSTALLATION
+  // Woodgreen Landscaping specific service types
+  TREE_TRIMMING
+  LAWN_MOWING
+  HEDGE_TRIMMING
+  WEEDING
+  GARDENING_PLANTING
+  GARDENING_SEEDING
+  MULCHING
+  GUTTER_CLEANING
+  DETHATCHING
+  LEAF_REMOVAL
+  // White Knight Snow Service specific service types
+  PREMIUM_SALTING
+  CALCIUM_MAGNESIUM_MIX
+  SNOW_PLOWING
+  ICE_MANAGEMENT
+  WINTER_MAINTENANCE
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+  NO_SHOW
+}
+
+enum ParticipantResponseStatus {
+  NEEDS_ACTION
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+enum ParticipantAppointmentRole {
+  ORGANIZER
+  ATTENDEE
+  OPTIONAL
+}
+
+enum NotificationType {
+  CONFIRMATION
+  REMINDER_24H
+  REMINDER_1H
+  CANCELLATION
+  RESCHEDULE
+  FOLLOW_UP
+}
+
+enum NotificationChannel {
+  SMS
+  EMAIL
+  VOICE_CALL
+  PUSH_NOTIFICATION
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum VoiceIntent {
+  BOOK_APPOINTMENT
+  CHECK_CALENDAR
+  CANCEL_APPOINTMENT
+  RESCHEDULE_APPOINTMENT
+  GET_AVAILABILITY
+  UNKNOWN
+}
+
+enum VoiceCommandStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+  REQUIRES_CLARIFICATION
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  PROSPECT
+  COMPLETED
+}
+
+enum HouseholdType {
+  PERSONAL
+  FAMILY
+  BUSINESS
+  ORGANIZATION
+}
+
+enum RecurringServiceType {
+  ONE_TIME
+  DAILY
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+  SEASONAL
+}
+
+enum CompletionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  PENDING
+}
+
+enum CommunicationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum CommunicationChannel {
+  SMS
+  EMAIL
+  PHONE
+  IN_PERSON
+  VIDEO_CALL
+}
+
+enum CommunicationPurpose {
+  SCHEDULING
+  SERVICE_UPDATE
+  BILLING
+  GENERAL
+  COMPLAINT
+  FOLLOWUP
+  QUOTE_REQUEST
+}
+
+enum SentimentLevel {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum DocumentType {
+  INVOICE
+  QUOTE
+  RECEIPT
+  CONTRACT
+  PROPOSAL
+  ESTIMATE
+  STATEMENT
+  OTHER
+}
+
+enum DocumentStatus {
+  DRAFT
+  SENT
+  VIEWED
+  APPROVED
+  PAID
+  EXPIRED
+  CANCELLED
+}
+
+enum PriorityLevel {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ConversationStatus {
+  ACTIVE
+  RESOLVED
+  PENDING
+  ARCHIVED
+}
+
+enum ConversationSource {
+  EMAIL
+  TEXT
+  PHONE
+  MEETING
+  IMPORT
+  MANUAL
+}
+
+enum MessageRole {
+  CLIENT
+  YOU
+  AI_DRAFT
+}
+
+enum MessageType {
+  EMAIL
+  TEXT
+  CALL_NOTES
+  MEETING_NOTES
+  VOICE_MEMO
+  FILE_UPLOAD
+}
+
+enum CalendarProvider {
+  GOOGLE
+  OUTLOOK
+  APPLE
+  CALDAV
+}
+
+// Follow-up specific enums
+enum RecurrencePattern {
+  NONE
+  DAILY
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUALLY
+  ANNUALLY
+  SEASONAL
+  CUSTOM
+}
+
+// Service Contract specific enums
+enum ServiceContractStatus {
+  ONGOING
+  COMPLETED
+  PAUSED
+  CANCELLED
+  SCHEDULED
+}
+
+enum ServiceFrequency {
+  ONE_TIME
+  DAILY
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+  SEASONAL
+  AS_NEEDED
+}
+
+enum FollowUpStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  MISSED
+  RESCHEDULED
+}
+
+enum FollowUpCategory {
+  GENERAL
+  SERVICE_CHECK
+  PAYMENT_FOLLOW_UP
+  MAINTENANCE_REMINDER
+  SEASONAL_PLANNING
+  PROJECT_UPDATE
+  RELATIONSHIP_BUILDING
+  COMPLAINT_RESOLUTION
+  CONTRACT_RENEWAL
+  UPSELL_OPPORTUNITY
+}
+
+enum FollowUpNotificationType {
+  SCHEDULED
+  REMINDER_7_DAYS
+  REMINDER_24_HOURS
+  REMINDER_1_HOUR
+  COMPLETION_REQUEST
+  MISSED_FOLLOW_UP
+  RESCHEDULE_REQUEST
+  OUTCOME_SUMMARY
+}
+
+// New Billing Status enum for service records and billing records
+enum BillingStatus {
+  PENDING
+  BILLED
+  PAID
+  CANCELLED
+  OVERDUE
+}
+
+// Billing Record Status enum
+enum BillingRecordStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+  PARTIAL_PAYMENT
+}
+
+// Dedicated Billing Record model for comprehensive billing tracking
+model BillingRecord {
+  id            String @id @default(cuid())
+  
+  // Client relationship
+  clientId      String
+  client        ClientRecord @relation(fields: [clientId], references: [id])
+  
+  // Service Line relationship
+  serviceLineId String
+  serviceLine   ServiceLine @relation(fields: [serviceLineId], references: [id])
+  
+  // Service Record relationship (optional - for specific service billing)
+  serviceRecordId String?
+  serviceRecord   ServiceRecord? @relation(fields: [serviceRecordId], references: [id])
+  
+  // Contract relationship (optional)
+  contractId    String?
+  contract      ClientServiceContract? @relation(fields: [contractId], references: [id])
+  
+  // Billing details
+  invoiceNumber String? @unique
+  amount        Float
+  currency      String @default("CAD")
+  billingPeriod String // e.g., "Winter 2024-2025", "March 2025"
+  billingDate   DateTime
+  dueDate       DateTime?
+  paidDate      DateTime?
+  
+  // Status and description
+  status        BillingRecordStatus @default(DRAFT)
+  description   String
+  
+  // Flexible metadata for billing details
+  metadata      Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([clientId])
+  @@index([serviceLineId])
+  @@index([status])
+  @@index([billingDate])
+  @@index([invoiceNumber])
+}
+
+// Conflict Resolution tracking model for persistent conflict resolution choices
+model ConflictResolution {
+  id               String   @id @default(cuid())
+
+  // Conflict identification
+  conflictId       String   // The specific conflict ID (e.g., "temporal_event-123", "business_work_days")
+  conflictType     String   // Type of conflict (temporal_overlap, resource_conflict, business_rule)
+
+  // User and resolution details
+  userId           String?  // Optional user who made the resolution
+  resolutionType   ConflictResolutionType
+
+  // Affected entities
+  affectedEventIds String   // JSON array of event IDs involved in conflict
+
+  // Resolution context and metadata
+  resolutionData   Json?    // Additional context about the resolution (why, how, etc.)
+  conflictMessage  String?  // Original conflict message for reference
+
+  // Audit trail
+  resolvedAt       DateTime @default(now())
+  expiresAt        DateTime? // Optional expiration for temporary resolutions
+
+  // Performance indexes
+  @@unique([conflictId])
+  @@index([conflictType])
+  @@index([resolvedAt])
+  @@index([conflictId, resolutionType])
+}
+
+enum ConflictResolutionType {
+  ACCEPT          // User accepted the conflict (e.g., override business rule)
+  DELETE          // User deleted the conflicting event
+  RESCHEDULE      // User rescheduled the conflicting event
+  OVERRIDE        // User overrode a business rule/policy
+  IGNORE          // User chose to ignore the conflict
+}
+
+// Billing Documents - Receipts, Invoices, Quotes, Estimates
+model BillingDocument {
+  id              String @id @default(cuid())
+  documentNumber  String @unique // REC-2025-001, INV-2025-001, QUO-2025-001, EST-2025-001
+  documentType    BillingDocumentType
+
+  // Relationships
+  clientId        String
+  client          ClientRecord @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  conversationId  String?
+  conversation    Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  // Financial details
+  serviceType     String
+  amount          Float
+  description     String?
+  date            DateTime
+
+  // Status tracking
+  status          BillingDocumentStatus @default(DRAFT)
+  sentAt          DateTime?
+  paidAt          DateTime?
+
+  // Metadata
+  metadata        Json? // Additional document-specific data
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([conversationId])
+  @@index([status])
+  @@index([documentType])
+  @@index([date])
+}
+
+enum BillingDocumentType {
+  RECEIPT
+  INVOICE
+  QUOTE
+  ESTIMATE
+}
+
+enum BillingDocumentStatus {
+  DRAFT
+  SENT
+  PAID
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
+// Admin User Management
+model AdminUser {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String   @default("System Administrator")
+  role          String   @default("SUPER_ADMIN")
+  isActive      Boolean  @default(true)
+
+  // Password reset tokens
+  resetTokens   PasswordResetToken[]
+
+  // 3D Studio
+  studioProjects StudioProject[]
+  studioAssets   StudioAsset[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([email])
+  @@index([isActive])
+}
+
+// Password Reset Tokens
+model PasswordResetToken {
+  id            String   @id @default(cuid())
+  token         String   @unique
+  userId        String
+  user          AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt     DateTime
+  usedAt        DateTime?
+
+  createdAt     DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Testimonial Model - Client testimonials and reviews
+model Testimonial {
+  id            String   @id @default(cuid())
+
+  // Client relationship
+  clientId      String
+  client        ClientRecord @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Service relationship (optional - testimonial might be general)
+  serviceId     String?
+  serviceName   String?
+
+  // Testimonial content
+  rating        Int      // 1-5 stars
+  title         String?
+  content       String
+
+  // Status tracking
+  status        TestimonialStatus @default(PENDING)
+  isPublic      Boolean  @default(false)
+  isFeatured    Boolean  @default(false)
+
+  // Testimonial request tracking
+  requestSentAt DateTime?
+  submittedAt   DateTime?
+  approvedAt    DateTime?
+
+  // Metadata
+  source        String?  // "email", "form", "manual", etc.
+  metadata      Json?    // Additional data (photos, project details, etc.)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@index([isPublic])
+  @@index([isFeatured])
+  @@index([rating])
+}
+
+enum TestimonialStatus {
+  PENDING       // Waiting for client to submit
+  SUBMITTED     // Client has submitted, waiting for approval
+  APPROVED      // Approved and can be displayed
+  REJECTED      // Not approved for display
+  DRAFT         // Started but not completed
+}
+
+// Activity Log - Comprehensive activity tracking for the CRM
+model ActivityLog {
+  id            String   @id @default(cuid())
+
+  // Activity type and action
+  activityType  ActivityType
+  action        String   // e.g., "created", "updated", "deleted", "sent", "received"
+
+  // Entity references
+  entityType    String   // e.g., "client", "note", "testimonial", "appointment"
+  entityId      String?  // ID of the entity affected
+  clientId      String?  // Related client ID for filtering
+
+  // Activity details
+  description   String   // Human-readable description
+  metadata      Json?    // Additional structured data
+
+  // User tracking (for future multi-user support)
+  userId        String?  // User who performed the action
+  userName      String?  // Name of the user
+  userRole      String?  // Role of the user (e.g., "admin", "owner", "staff")
+
+  // Deployment and system events
+  deploymentInfo Json?   // Git commit info, deployment details
+
+  // Timestamps
+  createdAt     DateTime @default(now())
+
+  @@index([activityType])
+  @@index([action])
+  @@index([entityType])
+  @@index([clientId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+enum ActivityType {
+  CLIENT_UPDATE       // Client profile updated
+  NOTE_CREATED        // Note added
+  TESTIMONIAL_RECEIVED // Testimonial submitted
+  APPOINTMENT_SCHEDULED // Appointment created
+  APPOINTMENT_UPDATED  // Appointment modified
+  MESSAGE_SENT        // Message sent to client
+  MESSAGE_RECEIVED    // Message received from client
+  RECEIPT_CREATED     // Receipt generated
+  INVOICE_CREATED     // Invoice generated
+  QUOTE_CREATED       // Quote created
+  DEPLOYMENT          // Website deployed
+  GIT_PUSH            // Git repository push
+  SYSTEM_EVENT        // General system event
+  TIME_TRACKED        // Time tracker entry
+}
+
+// ============================================================================
+// 3D STUDIO MODELS
+// ============================================================================
+
+// 3D Studio Project - stores complete scene data
+model StudioProject {
+  id          String   @id @default(cuid())
+  userId      String
+  user        AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  sceneData   Json     // Serialized Three.js scene data
+  thumbnail   String?  // Base64 or URL to thumbnail image
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// 3D Studio Asset - stores uploaded 3D models, textures, materials
+model StudioAsset {
+  id          String   @id @default(cuid())
+  userId      String
+  user        AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  type        String   // "model", "texture", "material", "hdri"
+  fileUrl     String   // S3 URL or local path
+  fileSize    Int?     // Size in bytes
+  metadata    Json?    // Additional metadata (dimensions, format, etc.)
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}

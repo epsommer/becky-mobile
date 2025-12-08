@@ -2,6 +2,7 @@
 
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 const quickMessages = [
   { title: "Request status update", client: "Woodgreen Landscaping", label: "Email" },
@@ -10,6 +11,9 @@ const quickMessages = [
 ];
 
 export default function QuickMessagePanel() {
+  const { tokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
   return (
     <View style={styles.panel}>
       <View style={styles.headingRow}>
@@ -31,55 +35,61 @@ export default function QuickMessagePanel() {
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    marginTop: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#1b2134",
-    backgroundColor: "#0f1322",
-    padding: 16,
-  },
-  headingRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  heading: {
-    color: "#f5f6ff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  cta: {
-    color: "#6fb1ff",
-    textTransform: "uppercase",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#151a29",
-  },
-  textBlock: {
-    flex: 1,
-  },
-  title: {
-    color: "#cbd3f4",
-    fontWeight: "600",
-  },
-  client: {
-    color: "#9cb3ff",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  label: {
-    color: "#8fd7ff",
-    fontSize: 11,
-    fontWeight: "600",
-    alignSelf: "center",
-  },
-});
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
+    panel: {
+      marginTop: 16,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      backgroundColor: tokens.surface,
+      padding: 16,
+      shadowColor: tokens.shadowDark,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 5,
+    },
+    headingRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    heading: {
+      color: tokens.textPrimary,
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    cta: {
+      color: tokens.accent,
+      textTransform: "uppercase",
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    row: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: tokens.border,
+    },
+    textBlock: {
+      flex: 1,
+    },
+    title: {
+      color: tokens.textSecondary,
+      fontWeight: "600",
+    },
+    client: {
+      color: tokens.highlight,
+      fontSize: 12,
+      marginTop: 2,
+    },
+    label: {
+      color: tokens.accent,
+      fontSize: 11,
+      fontWeight: "600",
+      alignSelf: "center",
+    },
+  });

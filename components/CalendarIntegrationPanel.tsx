@@ -2,6 +2,7 @@
 
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 const integrations = [
   { label: "Google Calendar", status: "Synced", detail: "Next sync in 12m" },
@@ -9,6 +10,9 @@ const integrations = [
 ];
 
 export default function CalendarIntegrationPanel() {
+  const { tokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
   return (
     <View style={styles.panel}>
       <View style={styles.headingRow}>
@@ -30,51 +34,57 @@ export default function CalendarIntegrationPanel() {
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    marginTop: 16,
-    borderRadius: 18,
-    backgroundColor: "#0f1322",
-    borderWidth: 1,
-    borderColor: "#1b2134",
-    padding: 16,
-  },
-  headingRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  heading: {
-    color: "#f5f6ff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  cta: {
-    color: "#6fb1ff",
-    textTransform: "uppercase",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  integrationRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#151a29",
-  },
-  integrationLabel: {
-    color: "#cbd3f4",
-    fontWeight: "600",
-  },
-  integrationDetail: {
-    color: "#8fd7ff",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  integrationTime: {
-    color: "#9cb3ff",
-    fontSize: 11,
-    textAlign: "right",
-  },
-});
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
+    panel: {
+      marginTop: 16,
+      borderRadius: 18,
+      backgroundColor: tokens.surface,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      padding: 16,
+      shadowColor: tokens.shadowDark,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+    headingRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 10,
+    },
+    heading: {
+      color: tokens.textPrimary,
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    cta: {
+      color: tokens.accent,
+      textTransform: "uppercase",
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    integrationRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: tokens.border,
+    },
+    integrationLabel: {
+      color: tokens.textSecondary,
+      fontWeight: "600",
+    },
+    integrationDetail: {
+      color: tokens.highlight,
+      fontSize: 12,
+      marginTop: 2,
+    },
+    integrationTime: {
+      color: tokens.textPrimary,
+      fontSize: 11,
+      textAlign: "right",
+    },
+  });

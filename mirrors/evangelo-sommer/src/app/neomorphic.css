@@ -1,0 +1,954 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500&display=swap');
+
+/* Neomorphic Design System - Light Theme */
+:root {
+  --neomorphic-bg: #EBECF0;
+  --neomorphic-text: #6C7587;
+  --neomorphic-button-bg: #6C7587; /* Dark grey for button background */
+  --neomorphic-button-text: #EBECF0; /* Light background color for button text */
+  --neomorphic-icon: #8992A5;
+  --neomorphic-dark-shadow: #d1d9e6;
+  --neomorphic-light-shadow: #FFFFFF;
+  --neomorphic-accent: #8992A5; /* Neutral blue-grey accent */
+  --neomorphic-bright: #a8b2c7; /* Lighter blue-grey */
+}
+
+/* Mocha Theme - Warm Dark (warm brown-grey tones) */
+.mocha-mode {
+  --neomorphic-bg: #1c1917;
+  --neomorphic-text: #fafaf9;
+  --neomorphic-button-bg: #44403c; /* Darker warm grey for button background */
+  --neomorphic-button-text: #fafaf9; /* Light text for button */
+  --neomorphic-icon: #a8a29e;
+  --neomorphic-dark-shadow: #0a0908;
+  --neomorphic-light-shadow: rgba(255, 255, 255, 0.05); /* Reduced brightness */
+  --neomorphic-accent: #a8a29e; /* Warm stone grey accent */
+  --neomorphic-bright: #c4bfbb; /* Lighter warm grey */
+}
+
+/* Overkast Theme - Pure Monochrome Grey */
+:root.overkast-mode,
+.overkast-mode {
+  --neomorphic-bg: #B8B8B8;
+  --neomorphic-text: #3A3A3A;
+  --neomorphic-button-bg: #3A3A3A; /* Dark grey for button background */
+  --neomorphic-button-text: #B8B8B8; /* Light grey for button text */
+  --neomorphic-icon: #5A5A5A;
+  --neomorphic-dark-shadow: #9A9A9A;
+  --neomorphic-light-shadow: #D6D6D6;
+  --neomorphic-accent: #5A5A5A; /* Grey accent instead of gold for pure monochrome */
+  --neomorphic-bright: #7A7A7A; /* Grey bright instead of gold */
+}
+
+/* True Night Theme - Pure Neutral Dark */
+:root.true-night-mode,
+.true-night-mode {
+  --neomorphic-bg: #1a1a1a;
+  --neomorphic-text: #bfbfbf; /* Softer light grey */
+  --neomorphic-button-bg: #404040; /* Medium grey for button background */
+  --neomorphic-button-text: #bfbfbf; /* Softer light text for button */
+  --neomorphic-icon: #a6a6a6;
+  --neomorphic-dark-shadow: #0d0d0d;
+  --neomorphic-light-shadow: rgba(255, 255, 255, 0.04); /* Reduced brightness */
+  --neomorphic-accent: #a6a6a6; /* Neutral grey accent */
+  --neomorphic-bright: #c2c2c2; /* Lighter neutral grey */
+}
+
+/* Gilded Meadow Theme - Sunkissed Yellow with Green Sage Accents */
+:root.gilded-meadow-mode,
+.gilded-meadow-mode {
+  --neomorphic-bg: #f6f6bd; /* Sunkissed yellow (color-550) */
+  --neomorphic-text: #5f5f26; /* Deep sage (color-950) */
+  --neomorphic-button-bg: #5f5f26; /* Deep sage for button background */
+  --neomorphic-button-text: #f6f6bd; /* Sunkissed yellow for button text */
+  --neomorphic-icon: #85854c; /* Medium sage (color-850) */
+  --neomorphic-dark-shadow: #d0d097; /* Shadow sage (color-650) */
+  --neomorphic-light-shadow: #ffffe3; /* Light sunkissed (color-450) */
+  --neomorphic-accent: #abab72; /* Green sage accent (color-750) */
+  --neomorphic-bright: #d0d097; /* Brighter sage (color-650) */
+
+  /* Sunkissed Yellow Palette */
+  --color-50: #ffffff;
+  --color-150: #ffffff;
+  --color-250: #ffffff;
+  --color-350: #ffffff;
+  --color-450: #ffffe3;
+  --color-550: #f6f6bd;
+  --color-650: #d0d097;
+  --color-750: #abab72;
+  --color-850: #85854c;
+  --color-950: #5f5f26;
+}
+
+.neomorphic-button {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 18px;
+  color: var(--neomorphic-text);
+  padding: 0 28px;
+  height: 54px;
+  position: relative;
+  border: 3px solid transparent;
+  border-radius: 40px !important;
+  outline: none;
+  text-align: center;
+  background-color: var(--neomorphic-bg);
+  box-shadow: 8px 8px 12px -2px var(--neomorphic-dark-shadow),
+              -6px -6px 12px -1px var(--neomorphic-light-shadow);
+  transition: all 250ms ease-in-out, box-shadow 300ms ease-in-out;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Grainy texture overlay for button */
+.neomorphic-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 40px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.15;
+  background: #000000;
+  mix-blend-mode: multiply;
+  filter: url(#toggleNoiseFilter);
+}
+
+.true-night-mode .neomorphic-button::before,
+.mocha-mode .neomorphic-button::before {
+  opacity: 0.2;
+}
+
+.neomorphic-button > * {
+  position: relative;
+  z-index: 2;
+}
+
+.neomorphic-button:hover {
+  box-shadow: none;
+  border-color: var(--neomorphic-light-shadow);
+}
+
+.neomorphic-button:active {
+  box-shadow: inset -4px -4px 6px -1px var(--neomorphic-light-shadow),
+              inset 2px 2px 8px -1px var(--neomorphic-dark-shadow);
+  border-color: var(--neomorphic-light-shadow);
+}
+
+.neomorphic-toggle {
+  position: relative;
+  height: 44px;
+  width: 88px;
+  border-radius: 88px !important;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border: none;
+  outline: none;
+  background: var(--neomorphic-bg);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+/* Grainy texture overlay for toggle */
+.neomorphic-toggle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 88px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Light mode grain */
+:root .neomorphic-toggle::before,
+.neomorphic-toggle::before {
+  opacity: 0.15;
+  background: #000000;
+  mix-blend-mode: multiply;
+  filter: url(#toggleNoiseFilter);
+}
+
+/* Dark mode grain */
+.true-night-mode .neomorphic-toggle::before,
+.mocha-mode .neomorphic-toggle::before {
+  opacity: 0.2;
+  background: #000000;
+  mix-blend-mode: multiply;
+  filter: url(#toggleNoiseFilter);
+}
+
+/* Light mode toggle track */
+:root .neomorphic-toggle,
+.neomorphic-toggle {
+  box-shadow: inset 0 -3px 3px 0 rgba(0, 0, 0, 0.13),
+              inset 0 3px 3px 0 rgba(255, 255, 255, 1),
+              inset 12px -17px 14px 0 rgba(255, 255, 255, 0.9),
+              inset -13px 14px 12px 0 rgba(0, 0, 0, 0.1),
+              0 -8px 10px 0 rgba(255, 255, 255, 1),
+              0 13px 21px 0 rgba(0, 0, 0, 0.16);
+}
+
+/* Dark mode toggle track */
+.true-night-mode .neomorphic-toggle,
+.mocha-mode .neomorphic-toggle {
+  box-shadow: inset 0 -3px 3px 0 rgba(0, 0, 0, 0.5),
+              inset 0 3px 3px 0 rgba(255, 255, 255, 0.13),
+              inset 12px -17px 14px 0 rgba(255, 255, 255, 0.03),
+              inset -13px 14px 12px 0 rgba(0, 0, 0, 0.4),
+              0 -8px 15px 0 rgba(255, 255, 255, 0.08),
+              0 13px 21px 0 rgba(0, 0, 0, 0.4);
+}
+
+.neomorphic-toggle:focus {
+  outline: none;
+  border: none;
+}
+
+.neomorphic-toggle:active .neomorphic-toggle__slider {
+  box-shadow: 1px 1px 3px 0px rgba(0, 0, 0, 0.3),
+              -1px -1px 2px 0px rgba(255, 255, 255, 0.1);
+}
+
+.neomorphic-toggle__slider {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  background: var(--neomorphic-bg);
+  border-radius: 100px !important;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--neomorphic-text);
+  user-select: none;
+  z-index: 2;
+}
+
+/* Light mode slider - ON state (sun icon showing) */
+:root .neomorphic-toggle__slider,
+.neomorphic-toggle__slider {
+  box-shadow: 2px 2px 5px 0px rgba(0, 0, 0, 0.2),
+              -2px -2px 2px 0px rgba(255, 255, 255, 0.1);
+}
+
+/* Dark mode slider - ON state */
+.true-night-mode .neomorphic-toggle__slider,
+.mocha-mode .neomorphic-toggle__slider {
+  box-shadow: 2px 2px 5px 0px rgba(0, 0, 0, 0.4),
+              -2px -2px 2px 0px rgba(255, 255, 255, 0.08);
+}
+
+.neomorphic-toggle.active .neomorphic-toggle__slider {
+  transform: translateX(-44px);
+  right: 6px;
+}
+
+/* Light mode active slider */
+:root .neomorphic-toggle.active .neomorphic-toggle__slider,
+.neomorphic-toggle.active .neomorphic-toggle__slider {
+  box-shadow: 2px 2px 2px 1px rgba(0, 0, 0, 0.3),
+              -2px -2px 2px 0px rgba(255, 255, 255, 0.1);
+}
+
+/* Dark mode active slider */
+.true-night-mode .neomorphic-toggle.active .neomorphic-toggle__slider,
+.mocha-mode .neomorphic-toggle.active .neomorphic-toggle__slider {
+  box-shadow: 2px 2px 2px 1px rgba(0, 0, 0, 0.5),
+              -2px -2px 2px 0px rgba(255, 255, 255, 0.06);
+}
+
+/* Responsive Toggle - Tablet (768px and below) */
+@media only screen and (max-width: 768px) {
+  .neomorphic-toggle {
+    height: 40px;
+    width: 80px;
+    border-radius: 80px !important;
+  }
+
+  .neomorphic-toggle::before {
+    border-radius: 80px;
+  }
+
+  .neomorphic-toggle__slider {
+    top: 5px;
+    right: 5px;
+    width: 30px;
+    height: 30px;
+  }
+
+  .neomorphic-toggle.active .neomorphic-toggle__slider {
+    transform: translateX(-40px);
+    right: 5px;
+  }
+
+  .neomorphic-toggle__slider svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+/* Responsive Toggle - Mobile (480px and below) */
+@media only screen and (max-width: 480px) {
+  .neomorphic-toggle {
+    height: 36px;
+    width: 72px;
+    border-radius: 72px !important;
+  }
+
+  .neomorphic-toggle::before {
+    border-radius: 72px;
+  }
+
+  .neomorphic-toggle__slider {
+    top: 4px;
+    right: 4px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .neomorphic-toggle.active .neomorphic-toggle__slider {
+    transform: translateX(-36px);
+    right: 4px;
+  }
+
+  .neomorphic-toggle__slider svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* Neomorphic Input Wrapper for grain texture */
+.neomorphic-input-wrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.neomorphic-input-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.15;
+  background: #000000;
+  mix-blend-mode: multiply;
+  filter: url(#noiseFilter);
+}
+
+.true-night-mode .neomorphic-input-wrapper::before,
+.mocha-mode .neomorphic-input-wrapper::before {
+  opacity: 0.2;
+}
+
+/* Neomorphic Input Fields */
+.neomorphic-input {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 20px;
+  color: var(--neomorphic-text);
+  padding: 16px 20px;
+  width: 100%;
+  position: relative;
+  border: 3px solid transparent;
+  border-radius: 12px !important;
+  outline: none;
+  background-color: var(--neomorphic-bg);
+  box-shadow: inset 4px 4px 8px 0px var(--neomorphic-dark-shadow),
+              inset -4px -4px 8px 0px var(--neomorphic-light-shadow);
+  transition: all 250ms ease-in-out, box-shadow 300ms ease-in-out;
+  z-index: 2;
+}
+
+.neomorphic-input::placeholder {
+  color: var(--neomorphic-text);
+  opacity: 0.4;
+}
+
+.neomorphic-input:focus {
+  box-shadow: inset 2px 2px 4px 0px var(--neomorphic-dark-shadow),
+              inset -2px -2px 4px 0px var(--neomorphic-light-shadow);
+  border-color: var(--neomorphic-light-shadow);
+}
+
+/* Neomorphic Submit Button */
+.neomorphic-submit {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 20px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--neomorphic-text);
+  padding: 16px 32px;
+  width: 100%;
+  position: relative;
+  border: 3px solid transparent;
+  border-radius: 12px !important;
+  outline: none;
+  background-color: var(--neomorphic-bg);
+  box-shadow: 8px 8px 12px -2px var(--neomorphic-dark-shadow),
+              -6px -6px 12px -1px var(--neomorphic-light-shadow);
+  transition: all 250ms ease-in-out, box-shadow 300ms ease-in-out;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+/* Grainy texture overlay for submit button */
+.neomorphic-submit::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.15;
+  background: #000000;
+  mix-blend-mode: multiply;
+  filter: url(#toggleNoiseFilter);
+}
+
+.true-night-mode .neomorphic-submit::before,
+.mocha-mode .neomorphic-submit::before {
+  opacity: 0.2;
+}
+
+.neomorphic-submit > * {
+  position: relative;
+  z-index: 2;
+}
+
+.neomorphic-submit:hover:not(:disabled) {
+  box-shadow: 6px 6px 10px -2px var(--neomorphic-dark-shadow),
+              -4px -4px 10px -1px var(--neomorphic-light-shadow);
+}
+
+.neomorphic-submit:active:not(:disabled) {
+  box-shadow: inset 4px 4px 8px 0px var(--neomorphic-dark-shadow),
+              inset -4px -4px 8px 0px var(--neomorphic-light-shadow);
+}
+
+.neomorphic-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* True Night Mode - Ensure submit button has light text */
+.true-night-mode .neomorphic-submit {
+  color: #f2f2f2 !important;
+}
+
+.true-night-mode .neomorphic-submit > * {
+  color: #f2f2f2 !important;
+}
+
+/* Mocha Mode - Ensure submit button has light text */
+.mocha-mode .neomorphic-submit {
+  color: #fafaf9 !important;
+}
+
+.mocha-mode .neomorphic-submit > * {
+  color: #fafaf9 !important;
+}
+
+/* Neomorphic Logo Container */
+.neomorphic-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 12px !important;
+  background: var(--neomorphic-bg);
+  box-shadow: 8px 8px 16px 0px var(--neomorphic-dark-shadow),
+              -8px -8px 16px 0px var(--neomorphic-light-shadow);
+  transition: box-shadow 300ms ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ensure gilded meadow logo blends with background */
+.gilded-meadow-mode .neomorphic-logo {
+  background: #f6f6bd !important;
+}
+
+/* Grainy texture overlay for logo */
+.neomorphic-logo::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.15;
+  mix-blend-mode: multiply;
+  filter: url(#toggleNoiseFilter);
+}
+
+.true-night-mode .neomorphic-logo::before,
+.mocha-mode .neomorphic-logo::before {
+  opacity: 0.2;
+}
+
+/* Reduce overlay opacity for gilded meadow to prevent darkening */
+.gilded-meadow-mode .neomorphic-logo::before {
+  opacity: 0.15;
+}
+
+.neomorphic-logo > div {
+  position: relative;
+  z-index: 2;
+}
+
+/* Logo image filter for light mode */
+.neomorphic-logo img {
+  filter: invert(0.6) saturate(2) hue-rotate(-10deg) brightness(0.95);
+}
+
+/* Logo image filter for dark modes - make it light grey */
+.true-night-mode .neomorphic-logo img,
+.mocha-mode .neomorphic-logo img {
+  filter: invert(0.75) saturate(0) brightness(0.95);
+}
+
+/* Logo image filter for overkast mode */
+.overkast-mode .neomorphic-logo img {
+  filter: invert(0.22) saturate(1) brightness(0.65);
+}
+
+/* Logo image filter for gilded meadow mode */
+.gilded-meadow-mode .neomorphic-logo img {
+  filter: invert(0.5) saturate(2) hue-rotate(-10deg) brightness(0.9);
+}
+
+/* Neomorphic Card */
+.neomorphic-card {
+  border-radius: 20px !important;
+  background: var(--neomorphic-bg);
+  box-shadow: 8px 8px 16px 0px var(--neomorphic-dark-shadow),
+              -8px -8px 16px 0px var(--neomorphic-light-shadow);
+  transition: all 300ms ease-in-out;
+  border: 3px solid transparent;
+  cursor: pointer;
+  outline: none;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Grainy texture overlay for card */
+.neomorphic-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 20px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.15;
+  mix-blend-mode: multiply;
+  filter: url(#toggleNoiseFilter);
+}
+
+.true-night-mode .neomorphic-card::before,
+.mocha-mode .neomorphic-card::before {
+  opacity: 0.2;
+}
+
+.neomorphic-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+.neomorphic-card:hover {
+  box-shadow: 12px 12px 20px 0px var(--neomorphic-dark-shadow),
+              -12px -12px 20px 0px var(--neomorphic-light-shadow);
+  border-color: var(--neomorphic-accent);
+}
+
+.neomorphic-card:active {
+  box-shadow: inset 4px 4px 8px 0px var(--neomorphic-dark-shadow),
+              inset -4px -4px 8px 0px var(--neomorphic-light-shadow);
+}
+
+/* Additional Neomorphic Components */
+
+/* Container */
+.neo-container {
+  background: var(--neomorphic-bg);
+  border-radius: 0 !important;
+  box-shadow: 0 2px 8px 0px var(--neomorphic-dark-shadow);
+}
+
+/* Ensure proper background for dark themes */
+.mocha-mode .neo-container {
+  background-color: #1c1917;
+}
+
+.true-night-mode .neo-container {
+  background-color: #1a1a1a;
+}
+
+.neo-container-inner {
+  background: transparent;
+}
+
+/* Billing filter tabs override global weight reset */
+.billing-tab-label {
+  font-weight: 500 !important;
+}
+.billing-tab-label-active {
+  font-weight: 800 !important;
+}
+
+/* Buttons */
+.neo-button {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--neomorphic-text);
+  padding: 8px 16px;
+  border: none;
+  border-radius: 12px !important;
+  outline: none;
+  background-color: var(--neomorphic-bg);
+  box-shadow: 4px 4px 8px -1px var(--neomorphic-dark-shadow),
+              -3px -3px 8px -1px var(--neomorphic-light-shadow);
+  transition: all 200ms ease-in-out;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.neo-button:hover {
+  box-shadow: 2px 2px 4px -1px var(--neomorphic-dark-shadow),
+              -2px -2px 4px -1px var(--neomorphic-light-shadow);
+}
+
+.neo-button:active {
+  box-shadow: inset 2px 2px 4px 0px var(--neomorphic-dark-shadow),
+              inset -2px -2px 4px 0px var(--neomorphic-light-shadow);
+}
+
+.neo-button-active {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--neomorphic-button-text, var(--neomorphic-bg));
+  padding: 8px 16px;
+  border: none;
+  border-radius: 12px !important;
+  outline: none;
+  background-color: var(--neomorphic-button-bg, var(--neomorphic-text));
+  box-shadow: 4px 4px 8px -1px var(--neomorphic-dark-shadow),
+              -3px -3px 8px -1px var(--neomorphic-light-shadow);
+  transition: all 200ms ease-in-out;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.neo-button-active:hover {
+  box-shadow: 2px 2px 4px -1px var(--neomorphic-dark-shadow),
+              -2px -2px 4px -1px var(--neomorphic-light-shadow);
+}
+
+.neo-button-active:active {
+  box-shadow: inset 2px 2px 4px 0px var(--neomorphic-dark-shadow),
+              inset -2px -2px 4px 0px var(--neomorphic-light-shadow);
+}
+
+.neo-button-sm {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--neomorphic-text);
+  padding: 6px;
+  border: none;
+  border-radius: 8px !important;
+  outline: none;
+  background-color: var(--neomorphic-bg);
+  box-shadow: 3px 3px 6px -1px var(--neomorphic-dark-shadow),
+              -2px -2px 6px -1px var(--neomorphic-light-shadow);
+  transition: all 200ms ease-in-out;
+  cursor: pointer;
+}
+
+.neo-button-sm:hover {
+  box-shadow: none;
+}
+
+.neo-button-sm:active {
+  box-shadow: inset 2px 2px 4px 0px var(--neomorphic-dark-shadow),
+              inset -2px -2px 4px 0px var(--neomorphic-light-shadow);
+}
+
+.neo-button-circle {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  color: var(--neomorphic-text);
+  border: none;
+  border-radius: 50% !important;
+  outline: none;
+  background-color: var(--neomorphic-bg);
+  box-shadow: 4px 4px 8px -1px var(--neomorphic-dark-shadow),
+              -3px -3px 8px -1px var(--neomorphic-light-shadow);
+  transition: all 200ms ease-in-out;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.neo-button-circle:hover {
+  box-shadow: 2px 2px 4px -1px var(--neomorphic-dark-shadow),
+              -2px -2px 4px -1px var(--neomorphic-light-shadow);
+}
+
+.neo-button-circle:active {
+  box-shadow: inset 2px 2px 4px 0px var(--neomorphic-dark-shadow),
+              inset -2px -2px 4px 0px var(--neomorphic-light-shadow);
+}
+
+.neo-button-menu {
+  color: var(--neomorphic-text);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  transition: all 200ms ease-in-out;
+}
+
+.neo-button-menu:hover {
+  background-color: var(--neomorphic-bg);
+  box-shadow: 2px 2px 4px -1px var(--neomorphic-dark-shadow),
+              -2px -2px 4px -1px var(--neomorphic-light-shadow);
+}
+
+/* Theme-safe convex inputs for neomorphic design */
+.gilded-meadow-mode input,
+.gilded-meadow-mode select,
+.gilded-meadow-mode textarea,
+.gilded-meadow-mode .neo-inset {
+  background: var(--neomorphic-bg);
+  color: var(--neomorphic-text);
+  border: none;
+  box-shadow: 4px 4px 8px -1px var(--neomorphic-dark-shadow),
+              -3px -3px 8px -1px var(--neomorphic-light-shadow);
+}
+
+.overkast-mode input,
+.overkast-mode select,
+.overkast-mode textarea,
+.overkast-mode .neo-inset {
+  background: var(--neomorphic-bg);
+  color: var(--neomorphic-text);
+  border: none;
+  box-shadow: 4px 4px 8px -1px var(--neomorphic-dark-shadow),
+              -3px -3px 8px -1px var(--neomorphic-light-shadow);
+}
+
+/* Prevent headers in cards/modals from looking inset on gilded/overkast */
+.gilded-meadow-mode header,
+.overkast-mode header {
+  background: var(--neomorphic-bg);
+}
+
+/* Status green utility for better contrast on overkast */
+.status-green {
+  color: #166534; /* default dark green */
+}
+.overkast-mode .status-green {
+  color: #0f5132 !important;
+}
+.overkast-mode .status-green svg {
+  color: inherit;
+}
+
+/* Global grain overlay for neomorphic surfaces */
+html.neomorphic-window::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 0);
+  background-size: 3px 3px;
+  opacity: 0.08;
+  mix-blend-mode: multiply;
+  z-index: 0;
+}
+
+.true-night-mode.neomorphic-window::after,
+.mocha-mode.neomorphic-window::after {
+  opacity: 0.12;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 0);
+  mix-blend-mode: screen;
+}
+
+.overkast-mode.neomorphic-window::after {
+  opacity: 0.06;
+}
+
+.gilded-meadow-mode.neomorphic-window::after {
+  opacity: 0.08;
+}
+
+/* Theme-safe convex inputs for neomorphic design */
+.gilded-meadow-mode input,
+.gilded-meadow-mode select,
+.gilded-meadow-mode textarea,
+.gilded-meadow-mode .neo-inset {
+  background: var(--neomorphic-bg);
+  color: var(--neomorphic-text);
+  border: none;
+  box-shadow: 4px 4px 8px -1px var(--neomorphic-dark-shadow),
+              -3px -3px 8px -1px var(--neomorphic-light-shadow);
+}
+
+.overkast-mode input,
+.overkast-mode select,
+.overkast-mode textarea,
+.overkast-mode .neo-inset {
+  background: var(--neomorphic-bg);
+  color: var(--neomorphic-text);
+  border: none;
+  box-shadow: 4px 4px 8px -1px var(--neomorphic-dark-shadow),
+              -3px -3px 8px -1px var(--neomorphic-light-shadow);
+}
+
+/* Prevent headers in cards/modals from looking inset on gilded/overkast */
+.gilded-meadow-mode header,
+.overkast-mode header {
+  background: var(--neomorphic-bg);
+}
+
+/* Sidebar */
+.neo-sidebar {
+  background: var(--neomorphic-bg);
+  border-right: 1px solid var(--neomorphic-dark-shadow);
+  box-shadow: 4px 0 12px 0px var(--neomorphic-dark-shadow);
+}
+
+/* Ensure proper background for all themes */
+:root .neo-sidebar,
+:root:not(.mocha-mode):not(.true-night-mode):not(.overkast-mode):not(.gilded-meadow-mode) .neo-sidebar {
+  background-color: #EBECF0 !important;
+}
+
+.mocha-mode .neo-sidebar {
+  background-color: #1c1917 !important;
+}
+
+.true-night-mode .neo-sidebar {
+  background-color: #1a1a1a !important;
+}
+
+.overkast-mode .neo-sidebar {
+  background-color: #B8B8B8 !important;
+}
+
+.gilded-meadow-mode .neo-sidebar {
+  background-color: #f6f6bd !important;
+}
+
+.neo-nav-button {
+  color: var(--neomorphic-text);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  transition: all 200ms ease-in-out;
+}
+
+.neo-nav-button:hover {
+  background-color: var(--neomorphic-bg);
+  box-shadow: inset 2px 2px 4px 0px var(--neomorphic-dark-shadow),
+              inset -2px -2px 4px 0px var(--neomorphic-light-shadow);
+}
+
+.neo-nav-button-active {
+  background-color: var(--neomorphic-bg);
+  box-shadow: inset 3px 3px 6px 0px var(--neomorphic-dark-shadow),
+              inset -3px -3px 6px 0px var(--neomorphic-light-shadow);
+  color: var(--neomorphic-text);
+  font-weight: 600;
+}
+
+/* Dropdown */
+.neo-dropdown {
+  background: var(--neomorphic-bg);
+  box-shadow: 8px 8px 16px 0px var(--neomorphic-dark-shadow),
+              -4px -4px 12px 0px var(--neomorphic-light-shadow);
+  border: 1px solid var(--neomorphic-dark-shadow);
+}
+
+/* Card */
+.neo-card {
+  border-radius: 12px !important;
+  background: var(--neomorphic-bg);
+  box-shadow: 4px 4px 8px 0px var(--neomorphic-dark-shadow),
+              -3px -3px 8px 0px var(--neomorphic-light-shadow);
+  transition: all 200ms ease-in-out;
+}
+
+.neo-card:hover {
+  box-shadow: 6px 6px 12px 0px var(--neomorphic-dark-shadow),
+              -4px -4px 10px 0px var(--neomorphic-light-shadow);
+}
+
+/* Badge */
+.neo-badge {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--neomorphic-text);
+  border-radius: 8px !important;
+  background-color: var(--neomorphic-bg);
+  box-shadow: 2px 2px 4px 0px var(--neomorphic-dark-shadow),
+              -2px -2px 4px 0px var(--neomorphic-light-shadow);
+  display: inline-flex;
+  align-items: center;
+}
+
+.neo-badge-accent {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--neomorphic-bg);
+  background: linear-gradient(135deg, var(--neomorphic-accent), var(--neomorphic-bright));
+  box-shadow: 2px 2px 4px 0px var(--neomorphic-dark-shadow);
+}

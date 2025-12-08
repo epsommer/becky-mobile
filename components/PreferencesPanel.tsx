@@ -2,6 +2,7 @@
 
 import React from "react";
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 interface Preference {
   label: string;
@@ -20,6 +21,9 @@ interface PreferencesPanelProps {
 }
 
 export default function PreferencesPanel({ onClose }: PreferencesPanelProps) {
+  const { tokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
   return (
     <View style={styles.panel}>
       <Text style={styles.heading}>Preferences</Text>
@@ -29,7 +33,11 @@ export default function PreferencesPanel({ onClose }: PreferencesPanelProps) {
             <Text style={styles.label}>{pref.label}</Text>
             <Text style={styles.description}>{pref.description}</Text>
           </View>
-          <Switch value={pref.enabled} />
+          <Switch
+            value={pref.enabled}
+            trackColor={{ false: tokens.border, true: tokens.accent }}
+            thumbColor={tokens.textPrimary}
+          />
         </View>
       ))}
       <TouchableOpacity style={styles.action} onPress={onClose}>
@@ -39,52 +47,51 @@ export default function PreferencesPanel({ onClose }: PreferencesPanelProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: "#0d111f",
-    marginHorizontal: 28,
-    marginTop: 120,
-    borderRadius: 28,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: "#1f2335",
-  },
-  heading: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#f5f6ff",
-    marginBottom: 20,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  textGroup: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  label: {
-    color: "#9cb3ff",
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  description: {
-    color: "#cbd3f4",
-    fontSize: 13,
-    marginTop: 4,
-  },
-  action: {
-    marginTop: 12,
-    backgroundColor: "#5c93ff",
-    borderRadius: 16,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  actionText: {
-    color: "#0c1221",
-    fontWeight: "700",
-  },
-});
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
+    panel: {
+      backgroundColor: tokens.surface,
+      padding: 24,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      borderRadius: 24,
+    },
+    heading: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: tokens.textPrimary,
+      marginBottom: 20,
+    },
+    row: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    textGroup: {
+      flex: 1,
+      paddingRight: 12,
+    },
+    label: {
+      color: tokens.textSecondary,
+      fontSize: 12,
+      fontWeight: "600",
+      textTransform: "uppercase",
+    },
+    description: {
+      color: tokens.textPrimary,
+      fontSize: 13,
+      marginTop: 4,
+    },
+    action: {
+      marginTop: 12,
+      backgroundColor: tokens.accent,
+      borderRadius: 16,
+      paddingVertical: 12,
+      alignItems: "center",
+    },
+    actionText: {
+      color: tokens.background,
+      fontWeight: "700",
+    },
+  });

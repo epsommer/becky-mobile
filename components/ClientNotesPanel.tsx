@@ -2,6 +2,7 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 const notes = [
   {
@@ -22,6 +23,9 @@ const notes = [
 ];
 
 export default function ClientNotesPanel() {
+  const { tokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
   return (
     <View style={styles.panel}>
       <Text style={styles.heading}>Client notes</Text>
@@ -36,42 +40,43 @@ export default function ClientNotesPanel() {
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    marginTop: 12,
-    borderRadius: 18,
-    backgroundColor: "#0f1322",
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#1b2134",
-  },
-  heading: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#f5f6ff",
-    marginBottom: 8,
-  },
-  noteCard: {
-    backgroundColor: "#161b2d",
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#21273d",
-  },
-  noteTitle: {
-    color: "#c5d0ff",
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  noteDetail: {
-    color: "#9fb1d8",
-    fontSize: 13,
-    marginBottom: 6,
-  },
-  noteTimestamp: {
-    color: "#6f85cc",
-    fontSize: 11,
-    textTransform: "uppercase",
-  },
-});
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
+    panel: {
+      width: '100%',
+      alignSelf: 'stretch',
+    },
+    heading: {
+      fontSize: 16,
+      fontFamily: 'Bytesized-Regular',
+      fontWeight: "700",
+      color: tokens.textPrimary,
+      marginBottom: 12,
+    },
+    noteCard: {
+      backgroundColor: tokens.background,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: tokens.border,
+    },
+    noteTitle: {
+      color: tokens.textSecondary,
+      fontFamily: 'lores-9-wide',
+      fontWeight: "600",
+      marginBottom: 4,
+    },
+    noteDetail: {
+      color: tokens.textPrimary,
+      fontFamily: 'lores-9-wide',
+      fontSize: 13,
+      marginBottom: 6,
+    },
+    noteTimestamp: {
+      color: tokens.accent,
+      fontFamily: 'lores-9-wide',
+      fontSize: 11,
+      textTransform: "uppercase",
+    },
+  });

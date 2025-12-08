@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View, TouchableOpacity } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
 import { useApi } from "../../lib/hooks/useApi";
 import { clientsApi } from "../../lib/api/endpoints";
@@ -89,7 +89,7 @@ export default function ClientDetailScreen({ clientId, onBack }: ClientDetailScr
       {/* Header with Back Button */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Feather name="arrow-left" size={24} color={tokens.textPrimary} />
+          <Ionicons name="arrow-back" size={24} color={tokens.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={[styles.clientName, { color: tokens.textPrimary }]}>
@@ -111,35 +111,35 @@ export default function ClientDetailScreen({ clientId, onBack }: ClientDetailScr
             style={[styles.quickActionBtn, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
             onPress={handleMessage}
           >
-            <Feather name="message-circle" size={20} color={tokens.accent} />
+            <Ionicons name="chatbubble" size={20} color={tokens.accent} />
             <Text style={[styles.quickActionText, { color: tokens.textPrimary }]}>Message</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.quickActionBtn, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
             onPress={handleAppointment}
           >
-            <Feather name="calendar" size={20} color={tokens.accent} />
+            <Ionicons name="calendar" size={20} color={tokens.accent} />
             <Text style={[styles.quickActionText, { color: tokens.textPrimary }]}>Appointment</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.quickActionBtn, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
             onPress={handleReceipt}
           >
-            <Feather name="file-text" size={20} color={tokens.accent} />
+            <Ionicons name="document-text" size={20} color={tokens.accent} />
             <Text style={[styles.quickActionText, { color: tokens.textPrimary }]}>Receipt</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.quickActionBtn, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
             onPress={handleNote}
           >
-            <Feather name="edit-3" size={20} color={tokens.accent} />
+            <Ionicons name="create" size={20} color={tokens.accent} />
             <Text style={[styles.quickActionText, { color: tokens.textPrimary }]}>Note</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.quickActionBtn, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
             onPress={handleTimer}
           >
-            <Feather name="clock" size={20} color={tokens.accent} />
+            <Ionicons name="timer" size={20} color={tokens.accent} />
             <Text style={[styles.quickActionText, { color: tokens.textPrimary }]}>Timer</Text>
           </TouchableOpacity>
         </View>
@@ -151,21 +151,21 @@ export default function ClientDetailScreen({ clientId, onBack }: ClientDetailScr
         <View style={styles.infoGrid}>
           {client.email && (
             <View style={styles.infoRow}>
-              <Feather name="mail" size={16} color={tokens.textSecondary} />
+              <Ionicons name="mail-outline" size={16} color={tokens.textSecondary} />
               <Text style={[styles.infoLabel, { color: tokens.textSecondary }]}>Email</Text>
               <Text style={[styles.infoValue, { color: tokens.textPrimary }]}>{client.email}</Text>
             </View>
           )}
           {client.phone && (
             <View style={styles.infoRow}>
-              <Feather name="phone" size={16} color={tokens.textSecondary} />
+              <Ionicons name="call-outline" size={16} color={tokens.textSecondary} />
               <Text style={[styles.infoLabel, { color: tokens.textSecondary }]}>Phone</Text>
               <Text style={[styles.infoValue, { color: tokens.textPrimary }]}>{client.phone}</Text>
             </View>
           )}
           {client.address && (
             <View style={styles.infoRow}>
-              <Feather name="map-pin" size={16} color={tokens.textSecondary} />
+              <Ionicons name="location-outline" size={16} color={tokens.textSecondary} />
               <Text style={[styles.infoLabel, { color: tokens.textSecondary }]}>Address</Text>
               <Text style={[styles.infoValue, { color: tokens.textPrimary }]}>
                 {[

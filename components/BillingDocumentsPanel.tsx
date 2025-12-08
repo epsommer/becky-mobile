@@ -2,6 +2,7 @@
 
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 const documents = [
   { type: "Invoice", client: "Woodgreen Landscaping", amount: "$2,480", status: "Sent" },
@@ -10,6 +11,9 @@ const documents = [
 ];
 
 export default function BillingDocumentsPanel() {
+  const { tokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
+
   return (
     <View style={styles.panel}>
       <View style={styles.headingRow}>
@@ -34,61 +38,67 @@ export default function BillingDocumentsPanel() {
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    marginTop: 16,
-    borderRadius: 18,
-    backgroundColor: "#0f1322",
-    borderWidth: 1,
-    borderColor: "#1b2134",
-    padding: 16,
-  },
-  headingRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  heading: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#f5f6ff",
-  },
-  cta: {
-    color: "#6fb1ff",
-    textTransform: "uppercase",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  row: {
-    borderTopWidth: 1,
-    borderTopColor: "#151a29",
-    paddingVertical: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  label: {
-    color: "#9cb3ff",
-    fontSize: 11,
-    textTransform: "uppercase",
-  },
-  client: {
-    color: "#cbd3f4",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  meta: {
-    alignItems: "flex-end",
-  },
-  amount: {
-    color: "#94a6ff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  status: {
-    color: "#8fd7ff",
-    fontSize: 11,
-    marginTop: 4,
-  },
-});
+const createStyles = (tokens: ThemeTokens) =>
+  StyleSheet.create({
+    panel: {
+      marginTop: 16,
+      borderRadius: 18,
+      backgroundColor: tokens.surface,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      padding: 16,
+      shadowColor: tokens.shadowDark,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+    headingRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    heading: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: tokens.textPrimary,
+    },
+    cta: {
+      color: tokens.accent,
+      textTransform: "uppercase",
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    row: {
+      borderTopWidth: 1,
+      borderTopColor: tokens.border,
+      paddingVertical: 12,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    label: {
+      color: tokens.textSecondary,
+      fontSize: 11,
+      textTransform: "uppercase",
+    },
+    client: {
+      color: tokens.textPrimary,
+      fontSize: 14,
+      fontWeight: "600",
+    },
+    meta: {
+      alignItems: "flex-end",
+    },
+    amount: {
+      color: tokens.highlight,
+      fontSize: 14,
+      fontWeight: "700",
+    },
+    status: {
+      color: tokens.accent,
+      fontSize: 11,
+      marginTop: 4,
+    },
+  });

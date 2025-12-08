@@ -11,6 +11,12 @@
     "preview": {
       "distribution": "internal"
     },
+    "closed-testing": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production": {
       "android": {
         "buildType": "app-bundle"
