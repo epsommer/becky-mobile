@@ -1,10 +1,9 @@
 /**
  * AI Draft Service for generating message drafts using Claude API
  */
-import Constants from 'expo-constants';
+import { ANTHROPIC_API_KEY } from '@env';
 
-// Get API key from environment/config - NEVER hardcode secrets
-const ANTHROPIC_API_KEY = Constants.expoConfig?.extra?.anthropicApiKey || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
+const API_KEY = ANTHROPIC_API_KEY || '';
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
 export type MessageTone = 'professional' | 'friendly' | 'formal' | 'casual';
@@ -42,7 +41,7 @@ export class AIDraftService {
    * Check if the API is configured and available
    */
   static isConfigured(): boolean {
-    return !!ANTHROPIC_API_KEY && ANTHROPIC_API_KEY.startsWith('sk-ant');
+    return !!API_KEY && API_KEY.startsWith('sk-ant');
   }
 
   /**
@@ -54,7 +53,7 @@ export class AIDraftService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
+          'x-api-key': API_KEY,
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
@@ -163,7 +162,7 @@ Return ONLY the drafted message text, without any preamble or explanation.`;
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
+          'x-api-key': API_KEY,
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({

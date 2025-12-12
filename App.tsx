@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, Modal, Pressable, ActivityIndicator, Animated } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
 import AccountSettingsPanel from "./components/AccountSettingsPanel";
 import ActivityLogPanel from "./components/ActivityLogPanel";
 import PreferencesPanel from "./components/PreferencesPanel";
@@ -25,8 +26,12 @@ import { Ionicons } from "@expo/vector-icons";
 import NeomorphicCard from "./components/NeomorphicCard";
 import { ThemeProvider, ThemeTokens, useTheme } from "./theme/ThemeContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { CalendarProvider } from "./context/CalendarContext";
 import LoginScreen from "./screens/LoginScreen";
 import * as NavigationBar from "expo-navigation-bar";
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync();
 
 type PageKey =
   | "Dashboard"
@@ -154,7 +159,11 @@ function AuthGate() {
 
   // Show the full app
   console.log('[AuthGate] Authenticated, showing ThemedApp');
-  return <ThemedApp />;
+  return (
+    <CalendarProvider>
+      <ThemedApp />
+    </CalendarProvider>
+  );
 }
 
 function ThemedApp() {
@@ -183,6 +192,21 @@ function ThemedApp() {
   const styles = React.useMemo(() => createStyles(tokens), [tokens]);
 
   console.log('[ThemedApp] Fonts loaded:', fontsLoaded);
+
+  // Hide splash screen once fonts are loaded
+  useEffect(() => {
+    if (fontsLoaded) {
+      const hideSplash = async () => {
+        try {
+          await SplashScreen.hideAsync();
+          console.log('[ThemedApp] Splash screen hidden');
+        } catch (error) {
+          console.warn('[ThemedApp] Error hiding splash screen:', error);
+        }
+      };
+      hideSplash();
+    }
+  }, [fontsLoaded]);
 
   useEffect(() => {
     const darkMode = windowTheme === "tactical";

@@ -9,7 +9,7 @@
     "newArchEnabled": false,
     "scheme": "beckycrm",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/becky-logo-v4-512x512_@72ppi.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -47,7 +47,8 @@
     "owner": "epsommer",
     "plugins": [
       "expo-dev-client",
-      "expo-font"
+      "expo-font",
+      "expo-splash-screen"
     ]
   }
 }

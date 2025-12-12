@@ -53,7 +53,21 @@ export const eventsApi = {
    * @returns Created event
    */
   createEvent: async (data: CreateEventData): Promise<ApiResponse<Event>> => {
-    return apiClient.post<Event>('/api/events', data);
+    // Transform mobile field names to backend field names
+    const backendData: Record<string, any> = {
+      ...data,
+      // Map startTime -> startDateTime (backend expects this)
+      startDateTime: data.startTime,
+      // Map endTime -> endDateTime (backend expects this)
+      endDateTime: data.endTime,
+      // Include type for the backend
+      type: 'appointment',
+    };
+    // Remove mobile-specific field names
+    delete backendData.startTime;
+    delete backendData.endTime;
+
+    return apiClient.post<Event>('/api/events', backendData);
   },
 
   /**
@@ -67,7 +81,23 @@ export const eventsApi = {
     eventId: string,
     data: Partial<Event>
   ): Promise<ApiResponse<Event>> => {
-    return apiClient.patch<Event>(`/api/events/${eventId}`, data);
+    // Transform mobile field names to backend field names
+    const backendData: Record<string, any> = { ...data };
+
+    // Map startTime -> startDateTime if present
+    if (data.startTime) {
+      backendData.startDateTime = data.startTime;
+      delete backendData.startTime;
+    }
+
+    // Map endTime -> endDateTime if present
+    if (data.endTime) {
+      backendData.endDateTime = data.endTime;
+      delete backendData.endTime;
+    }
+
+    // Backend uses PUT with query param for updates
+    return apiClient.put<Event>(`/api/events?id=${eventId}`, backendData);
   },
 
   /**
@@ -77,7 +107,8 @@ export const eventsApi = {
    * @returns Success response
    */
   deleteEvent: async (eventId: string): Promise<ApiResponse<void>> => {
-    return apiClient.delete<void>(`/api/events/${eventId}`);
+    // Backend uses query param for delete
+    return apiClient.delete<void>(`/api/events?id=${eventId}`);
   },
 
   /**

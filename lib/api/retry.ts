@@ -117,8 +117,17 @@ export class RetryHandler {
 
     // Handle ApiError instances
     if (error instanceof ApiError) {
+      console.log('[RetryHandler] Error details:', {
+        type: error.type,
+        statusCode: error.statusCode,
+        message: error.message,
+        isRetryableType: this.config.retryableErrorTypes.includes(error.type),
+        isRetryableStatus: error.statusCode && this.config.retryableStatuses.includes(error.statusCode),
+      });
+
       // Check if error type is retryable
       if (this.config.retryableErrorTypes.includes(error.type)) {
+        console.log('[RetryHandler] Retrying due to error type:', error.type);
         return true;
       }
 
@@ -127,14 +136,17 @@ export class RetryHandler {
         error.statusCode &&
         this.config.retryableStatuses.includes(error.statusCode)
       ) {
+        console.log('[RetryHandler] Retrying due to status code:', error.statusCode);
         return true;
       }
 
-      // ApiError but not retryable
+      // ApiError but not retryable - 404 should fall here
+      console.log('[RetryHandler] Not retrying - error type/status not retryable');
       return false;
     }
 
     // For non-ApiError (unexpected errors), don't retry
+    console.log('[RetryHandler] Not an ApiError, not retrying:', typeof error, error?.constructor?.name);
     return false;
   }
 

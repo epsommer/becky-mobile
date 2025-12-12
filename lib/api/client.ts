@@ -111,22 +111,15 @@ export class APIClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+        let response: Response;
         try {
           // Make the request
-          const response = await fetch(finalUrl, {
+          response = await fetch(finalUrl, {
             ...finalConfig,
             signal: controller.signal,
           });
 
           clearTimeout(timeoutId);
-
-          // Run response interceptors
-          const finalResponse = skipInterceptors
-            ? response
-            : await this.interceptors.runResponseInterceptors(response);
-
-          // Parse and return response
-          return await this.parseResponse<T>(finalResponse);
         } catch (fetchError: any) {
           clearTimeout(timeoutId);
 
@@ -135,9 +128,17 @@ export class APIClient {
             throw ApiError.timeoutError(`Request timed out after ${timeout}ms`);
           }
 
-          // Handle network errors
+          // Handle network errors (only actual fetch failures, not response parsing)
           throw ApiError.networkError(fetchError.message || 'Network request failed');
         }
+
+        // Run response interceptors (outside fetch try-catch to avoid catching ApiErrors as network errors)
+        const finalResponse = skipInterceptors
+          ? response
+          : await this.interceptors.runResponseInterceptors(response);
+
+        // Parse and return response (outside fetch try-catch to avoid catching ApiErrors as network errors)
+        return await this.parseResponse<T>(finalResponse);
       } catch (error) {
         // Re-throw ApiError instances
         if (error instanceof ApiError) {
@@ -151,6 +152,35 @@ export class APIClient {
         );
       }
     });
+  }
+
+  /**
+   * Normalize event fields from backend format to mobile app format
+   * Backend uses: startDateTime, endDateTime
+   * Mobile uses: startTime, endTime
+   *
+   * @private
+   */
+  private normalizeEventFields(event: any): any {
+    if (!event || typeof event !== 'object') {
+      return event;
+    }
+
+    const normalized = { ...event };
+
+    // Map startDateTime -> startTime
+    if (event.startDateTime && !event.startTime) {
+      normalized.startTime = event.startDateTime;
+      delete normalized.startDateTime;
+    }
+
+    // Map endDateTime -> endTime
+    if (event.endDateTime && !event.endTime) {
+      normalized.endTime = event.endDateTime;
+      delete normalized.endDateTime;
+    }
+
+    return normalized;
   }
 
   /**
@@ -209,6 +239,13 @@ export class APIClient {
           data: data.receipt as T,
         };
       }
+      // Handle { success: true, event: {...} } format (singular event from create/update)
+      if ('event' in data) {
+        return {
+          success: data.success,
+          data: this.normalizeEventFields(data.event) as T,
+        };
+      }
     }
 
     // Format 2: Direct array [...]
@@ -225,9 +262,14 @@ export class APIClient {
       const dataKey = Object.keys(data).find((key) => dataKeys.includes(key));
 
       if (dataKey && Array.isArray(data[dataKey])) {
+        // Normalize event fields for events array
+        const normalizedData = dataKey === 'events'
+          ? data[dataKey].map((event: any) => this.normalizeEventFields(event))
+          : data[dataKey];
+
         return {
           success: true,
-          data: data[dataKey] as T,
+          data: normalizedData as T,
           total: data.total,
           page: data.page,
           limit: data.limit,

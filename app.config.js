@@ -1,0 +1,57 @@
+import 'dotenv/config';
+
+export default {
+  expo: {
+    name: "Becky CRM",
+    slug: "becky-crm",
+    version: "1.1.3",
+    orientation: "portrait",
+    icon: "./assets/becky-logo-v4-512x512_@72ppi.png",
+    userInterfaceStyle: "light",
+    newArchEnabled: false,
+    scheme: "beckycrm",
+    splash: {
+      image: "./assets/becky-logo-v4-512x512_@72ppi.png",
+      resizeMode: "contain",
+      backgroundColor: "#ffffff"
+    },
+    ios: {
+      bundleIdentifier: "com.epsommer.beckycrm",
+      supportsTablet: true
+    },
+    android: {
+      package: "com.epsommer.beckycrm",
+      versionCode: 20,
+      adaptiveIcon: {
+        foregroundImage: "./assets/becky-logo-v4-512x512_@72ppi.png",
+        backgroundColor: "#ffffff"
+      },
+      edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: false,
+      permissions: [
+        "READ_CONTACTS",
+        "READ_SMS",
+        "READ_CALENDAR",
+        "GET_ACCOUNTS",
+        "WAKE_LOCK",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
+    },
+    web: {
+      favicon: "./assets/favicon.png"
+    },
+    extra: {
+      eas: {
+        projectId: "90f7fff2-5572-4b2f-ae32-edf22e4dd01b"
+      },
+      backendUrl: "https://www.evangelosommer.com",
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY
+    },
+    owner: "epsommer",
+    plugins: [
+      "expo-dev-client",
+      "expo-font",
+      "expo-splash-screen"
+    ]
+  }
+};

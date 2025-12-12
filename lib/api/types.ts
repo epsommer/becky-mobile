@@ -158,6 +158,61 @@ export interface Message {
 }
 
 /**
+ * Event priority levels
+ */
+export type EventPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+/**
+ * Event type classification
+ */
+export type EventType = 'event' | 'task' | 'goal' | 'milestone';
+
+/**
+ * Notification trigger types
+ */
+export type NotificationTrigger = 'minutes' | 'hours' | 'days' | 'weeks';
+
+/**
+ * Notification rule for event reminders
+ */
+export interface NotificationRule {
+  id: string;
+  value: number;
+  trigger: NotificationTrigger;
+  enabled: boolean;
+}
+
+/**
+ * Recurrence frequency types
+ */
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
+
+/**
+ * Recurrence rule for repeating events
+ */
+export interface RecurrenceRule {
+  frequency: RecurrenceFrequency;
+  interval: number;
+  intervalType?: 'days' | 'weeks' | 'months' | 'years';
+  daysOfWeek?: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
+  dayOfMonth?: number; // 1-31 or -1 for last day
+  endDate?: string;
+  occurrences?: number;
+}
+
+/**
+ * Participant/Attendee for an event
+ */
+export interface EventParticipant {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  role?: 'organizer' | 'attendee' | 'optional';
+  responseStatus?: 'needs_action' | 'accepted' | 'declined' | 'tentative';
+}
+
+/**
  * Calendar event
  */
 export interface Event {
@@ -168,9 +223,19 @@ export interface Event {
   endTime: string;
   timezone?: string;
   clientId?: string;
+  clientName?: string;
   location?: string;
   service?: string;
-  status?: string;
+  status?: 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'rescheduled';
+  type?: EventType;
+  priority?: EventPriority;
+  isAllDay?: boolean;
+  isMultiDay?: boolean;
+  isRecurring?: boolean;
+  recurrence?: RecurrenceRule;
+  parentEventId?: string;
+  notifications?: NotificationRule[];
+  participants?: EventParticipant[];
   googleCalendarEventId?: string;
   outlookCalendarEventId?: string;
   createdAt?: string;
@@ -373,7 +438,7 @@ export interface EventsQuery extends PaginationParams {
   clientId?: string;
   startDate?: string;
   endDate?: string;
-  source?: 'database' | 'google' | 'outlook';
+  source?: 'database' | 'localStorage' | 'both' | 'google' | 'outlook';
 }
 
 /**
@@ -386,8 +451,17 @@ export interface CreateEventData {
   endTime: string;
   timezone?: string;
   clientId?: string;
+  clientName?: string;
   location?: string;
   service?: string;
+  type?: EventType;
+  priority?: EventPriority;
+  isAllDay?: boolean;
+  isMultiDay?: boolean;
+  isRecurring?: boolean;
+  recurrence?: RecurrenceRule;
+  notifications?: NotificationRule[];
+  participants?: EventParticipant[];
 }
 
 /**

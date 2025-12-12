@@ -9,6 +9,8 @@ export { eventsApi } from './events';
 export { billingApi } from './billing';
 export { testimonialsApi } from './testimonials';
 export { participantsApi } from './participants';
+export { calendarIntegrationsApi } from './calendar-integrations';
+export type { CalendarIntegration, CalendarSyncResult } from './calendar-integrations';
 
 // Re-export API client and types for convenience
 export { apiClient } from '../client';
