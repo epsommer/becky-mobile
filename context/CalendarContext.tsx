@@ -1,12 +1,20 @@
 /**
  * Calendar Context - State management for calendar and events
- * Includes Google Calendar sync integration
+ * Includes Google Calendar sync integration with persistent storage
  */
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { eventsApi, calendarIntegrationsApi, CalendarIntegration } from '../lib/api/endpoints';
 import { Event, CreateEventData } from '../lib/api/types';
 
-export type CalendarView = 'day' | 'week' | 'month';
+// Storage keys for persisting integration state
+const STORAGE_KEYS = {
+  CALENDAR_INTEGRATIONS: '@becky_calendar_integrations',
+  ACTIVE_INTEGRATION: '@becky_active_integration',
+  LAST_SYNC_AT: '@becky_last_google_sync_at',
+};
+
+export type CalendarView = 'day' | 'week' | 'month' | 'year';
 
 export interface DragState {
   isDragging: boolean;
@@ -22,6 +30,30 @@ export interface ResizeState {
   originalEnd: string | null;
 }
 
+export interface ParticipantConfirmationState {
+  visible: boolean;
+  event: Event | null;
+  oldStartTime: string | null;
+  oldEndTime: string | null;
+  newStartTime: string | null;
+  newEndTime: string | null;
+  pendingUpdate: (() => Promise<void>) | null;
+}
+
+/**
+ * Recurring delete options
+ */
+export type RecurringDeleteOption =
+  | 'this_only'           // Delete only this occurrence
+  | 'this_and_following'  // Delete this and all future events
+  | 'all';                // Delete entire series
+
+export interface RecurringDeleteState {
+  visible: boolean;
+  event: Event | null;
+  relatedEvents: Event[];
+}
+
 interface CalendarContextType {
   // Current state
   selectedDate: Date;
@@ -35,10 +67,16 @@ interface CalendarContextType {
   activeIntegration: CalendarIntegration | null;
   syncingGoogle: boolean;
   lastGoogleSyncAt: string | null;
+  integrationsLoading: boolean;
+  integrationsLoaded: boolean;
 
   // Drag & drop state
   dragState: DragState;
   resizeState: ResizeState;
+  participantConfirmation: ParticipantConfirmationState;
+
+  // Recurring delete state
+  recurringDeleteState: RecurringDeleteState;
 
   // Actions
   setSelectedDate: (date: Date) => void;
@@ -57,6 +95,7 @@ interface CalendarContextType {
   fetchCalendarIntegrations: () => Promise<void>;
   syncFromGoogleCalendar: () => Promise<void>;
   initiateGoogleAuth: () => Promise<string | null>;
+  disconnectIntegration: (integrationId: string) => Promise<boolean>;
 
   // Drag & drop actions
   startDrag: (event: Event, slot: { date: string; hour: number; minute: number }) => void;
@@ -69,8 +108,18 @@ interface CalendarContextType {
   endResize: () => void;
   cancelResize: () => void;
 
+  // Participant confirmation actions
+  confirmParticipantUpdate: (notifyParticipants: boolean) => Promise<void>;
+  cancelParticipantUpdate: () => void;
+
+  // Recurring delete actions
+  initiateRecurringDelete: (event: Event) => Promise<void>;
+  confirmRecurringDelete: (option: RecurringDeleteOption) => Promise<{ deletedCount: number; deletedIds: string[] }>;
+  cancelRecurringDelete: () => void;
+
   // Helpers
   getEventsForDate: (date: Date) => Event[];
+  getRelatedEvents: (event: Event) => Event[];
   getEventsForDateRange: (startDate: Date, endDate: Date) => Event[];
 }
 
@@ -100,6 +149,41 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
   const [activeIntegration, setActiveIntegration] = useState<CalendarIntegration | null>(null);
   const [syncingGoogle, setSyncingGoogle] = useState(false);
   const [lastGoogleSyncAt, setLastGoogleSyncAt] = useState<string | null>(null);
+  const [integrationsLoading, setIntegrationsLoading] = useState(false);
+  const [integrationsLoaded, setIntegrationsLoaded] = useState(false);
+
+  // Load persisted integration state on mount
+  useEffect(() => {
+    const loadPersistedIntegrations = async () => {
+      try {
+        const [integrationsJson, activeJson, lastSyncAt] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEYS.CALENDAR_INTEGRATIONS),
+          AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_INTEGRATION),
+          AsyncStorage.getItem(STORAGE_KEYS.LAST_SYNC_AT),
+        ]);
+
+        if (integrationsJson) {
+          const integrations = JSON.parse(integrationsJson);
+          setCalendarIntegrations(integrations);
+          console.log('[CalendarContext] Loaded persisted integrations:', integrations.length);
+        }
+
+        if (activeJson) {
+          const active = JSON.parse(activeJson);
+          setActiveIntegration(active);
+          console.log('[CalendarContext] Loaded persisted active integration:', active?.calendarName);
+        }
+
+        if (lastSyncAt) {
+          setLastGoogleSyncAt(lastSyncAt);
+        }
+      } catch (err) {
+        console.error('[CalendarContext] Error loading persisted integrations:', err);
+      }
+    };
+
+    loadPersistedIntegrations();
+  }, []);
 
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -113,6 +197,22 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     handle: null,
     originalStart: null,
     originalEnd: null,
+  });
+
+  const [participantConfirmation, setParticipantConfirmation] = useState<ParticipantConfirmationState>({
+    visible: false,
+    event: null,
+    oldStartTime: null,
+    oldEndTime: null,
+    newStartTime: null,
+    newEndTime: null,
+    pendingUpdate: null,
+  });
+
+  const [recurringDeleteState, setRecurringDeleteState] = useState<RecurringDeleteState>({
+    visible: false,
+    event: null,
+    relatedEvents: [],
   });
 
   // Fetch events from API
@@ -157,8 +257,43 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     }
   }, []);
 
-  // Update event
-  const updateEvent = useCallback(async (eventId: string, data: Partial<Event>): Promise<Event | null> => {
+  // Helper to check if event has participants
+  const hasParticipants = useCallback((event: Event) => {
+    return event.participants && event.participants.length > 0;
+  }, []);
+
+  // Update event with optional participant confirmation
+  const updateEventWithConfirmation = useCallback(async (
+    eventId: string,
+    data: Partial<Event>,
+    skipConfirmation: boolean = false
+  ): Promise<Event | null> => {
+    const event = events.find(e => e.id === eventId);
+
+    // If event has participants and we're changing times, show confirmation modal
+    if (!skipConfirmation && event && hasParticipants(event) && (data.startTime || data.endTime)) {
+      return new Promise((resolve) => {
+        setParticipantConfirmation({
+          visible: true,
+          event,
+          oldStartTime: event.startTime,
+          oldEndTime: event.endTime,
+          newStartTime: data.startTime || event.startTime,
+          newEndTime: data.endTime || event.endTime,
+          pendingUpdate: async () => {
+            const result = await updateEventDirect(eventId, data);
+            resolve(result);
+          },
+        });
+      });
+    }
+
+    // No participants or skip confirmation, update directly
+    return updateEventDirect(eventId, data);
+  }, [events, hasParticipants]);
+
+  // Direct update without confirmation (internal use)
+  const updateEventDirect = useCallback(async (eventId: string, data: Partial<Event>): Promise<Event | null> => {
     console.log('[CalendarContext] ========== UPDATE EVENT ==========');
     console.log('[CalendarContext] Event ID:', eventId);
     console.log('[CalendarContext] Update data:', JSON.stringify(data, null, 2));
@@ -258,13 +393,32 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
   // Google Calendar Integration
   // ============================================================================
 
+  // Use a ref to track if we're currently fetching to avoid loops
+  const isFetchingIntegrationsRef = React.useRef(false);
+
   // Fetch calendar integrations for the current user
   const fetchCalendarIntegrations = useCallback(async () => {
+    // Skip if already fetching (use ref to avoid dependency issues)
+    if (isFetchingIntegrationsRef.current) {
+      console.log('[CalendarContext] Already fetching integrations, skipping...');
+      return;
+    }
+
+    isFetchingIntegrationsRef.current = true;
+    setIntegrationsLoading(true);
     try {
       console.log('[CalendarContext] Fetching calendar integrations...');
       const response = await calendarIntegrationsApi.getIntegrations();
       if (response.success && response.data) {
         setCalendarIntegrations(response.data);
+        setIntegrationsLoaded(true);
+
+        // Persist integrations to storage
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.CALENDAR_INTEGRATIONS,
+          JSON.stringify(response.data)
+        );
+
         // Set active integration to first active Google Calendar
         const googleIntegration = response.data.find(
           i => i.provider === 'GOOGLE' && i.isActive
@@ -272,13 +426,33 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
         if (googleIntegration) {
           setActiveIntegration(googleIntegration);
           setLastGoogleSyncAt(googleIntegration.lastSyncAt);
+
+          // Persist active integration
+          await AsyncStorage.setItem(
+            STORAGE_KEYS.ACTIVE_INTEGRATION,
+            JSON.stringify(googleIntegration)
+          );
+          if (googleIntegration.lastSyncAt) {
+            await AsyncStorage.setItem(
+              STORAGE_KEYS.LAST_SYNC_AT,
+              googleIntegration.lastSyncAt
+            );
+          }
+
           console.log('[CalendarContext] Active Google Calendar integration:', googleIntegration.calendarName);
+        } else {
+          // No active integration - clear persisted state
+          setActiveIntegration(null);
+          await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE_INTEGRATION);
         }
       }
     } catch (err) {
       console.error('[CalendarContext] Error fetching calendar integrations:', err);
+    } finally {
+      setIntegrationsLoading(false);
+      isFetchingIntegrationsRef.current = false;
     }
-  }, []);
+  }, []); // Empty dependency array - function is stable
 
   // Sync events FROM Google Calendar
   const syncFromGoogleCalendar = useCallback(async () => {
@@ -361,6 +535,47 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     }
   }, []);
 
+  // Disconnect a calendar integration
+  const disconnectIntegration = useCallback(async (integrationId: string): Promise<boolean> => {
+    try {
+      console.log('[CalendarContext] Disconnecting integration:', integrationId);
+      const response = await calendarIntegrationsApi.deleteIntegration(integrationId);
+
+      if (response.success) {
+        // Update local state
+        setCalendarIntegrations(prev => prev.filter(i => i.id !== integrationId));
+
+        // Clear active integration if it was the one disconnected
+        if (activeIntegration?.id === integrationId) {
+          setActiveIntegration(null);
+          setLastGoogleSyncAt(null);
+
+          // Clear persisted state
+          await AsyncStorage.multiRemove([
+            STORAGE_KEYS.ACTIVE_INTEGRATION,
+            STORAGE_KEYS.LAST_SYNC_AT,
+          ]);
+        }
+
+        // Update persisted integrations list
+        const remainingIntegrations = calendarIntegrations.filter(i => i.id !== integrationId);
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.CALENDAR_INTEGRATIONS,
+          JSON.stringify(remainingIntegrations)
+        );
+
+        console.log('[CalendarContext] Integration disconnected successfully');
+        return true;
+      }
+
+      console.error('[CalendarContext] Failed to disconnect integration:', response.error);
+      return false;
+    } catch (err) {
+      console.error('[CalendarContext] Error disconnecting integration:', err);
+      return false;
+    }
+  }, [activeIntegration, calendarIntegrations]);
+
   // Note: Calendar integrations are fetched on-demand when user views Integrations tab
   // This avoids unnecessary API calls and "Not authenticated" errors on app launch
 
@@ -430,14 +645,14 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     newStart.setHours(newSlot.hour, newSlot.minute, 0, 0);
     const newEnd = new Date(newStart.getTime() + duration);
 
-    // Update event
-    await updateEvent(event.id, {
+    // Update event with participant confirmation if needed
+    await updateEventWithConfirmation(event.id, {
       startTime: newStart.toISOString(),
       endTime: newEnd.toISOString(),
     });
 
     setDragState({ isDragging: false, draggedEvent: null, originalSlot: null });
-  }, [dragState.draggedEvent, updateEvent]);
+  }, [dragState.draggedEvent, updateEventWithConfirmation]);
 
   const cancelDrag = useCallback(() => {
     setDragState({ isDragging: false, draggedEvent: null, originalSlot: null });
@@ -476,14 +691,14 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
 
     const event = events.find(e => e.id === resizeState.resizingEvent!.id);
     if (event) {
-      await updateEvent(event.id, {
+      await updateEventWithConfirmation(event.id, {
         startTime: event.startTime,
         endTime: event.endTime,
       });
     }
 
     setResizeState({ isResizing: false, resizingEvent: null, handle: null, originalStart: null, originalEnd: null });
-  }, [resizeState.resizingEvent, events, updateEvent]);
+  }, [resizeState.resizingEvent, events, updateEventWithConfirmation]);
 
   const cancelResize = useCallback(() => {
     if (resizeState.resizingEvent && resizeState.originalStart && resizeState.originalEnd) {
@@ -500,6 +715,40 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     setResizeState({ isResizing: false, resizingEvent: null, handle: null, originalStart: null, originalEnd: null });
   }, [resizeState]);
 
+  // Confirm participant update
+  const confirmParticipantUpdate = useCallback(async (notifyParticipants: boolean) => {
+    if (participantConfirmation.pendingUpdate) {
+      // TODO: Add API call to notify participants if notifyParticipants is true
+      if (notifyParticipants) {
+        console.log('[CalendarContext] Would notify participants about event change');
+      }
+
+      await participantConfirmation.pendingUpdate();
+      setParticipantConfirmation({
+        visible: false,
+        event: null,
+        oldStartTime: null,
+        oldEndTime: null,
+        newStartTime: null,
+        newEndTime: null,
+        pendingUpdate: null,
+      });
+    }
+  }, [participantConfirmation]);
+
+  // Cancel participant update
+  const cancelParticipantUpdate = useCallback(() => {
+    setParticipantConfirmation({
+      visible: false,
+      event: null,
+      oldStartTime: null,
+      oldEndTime: null,
+      newStartTime: null,
+      newEndTime: null,
+      pendingUpdate: null,
+    });
+  }, []);
+
   // Helper functions
   const getEventsForDate = useCallback((date: Date): Event[] => {
     const dateStr = date.toISOString().split('T')[0];
@@ -515,6 +764,96 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
       return eventStart >= startDate && eventStart <= endDate;
     });
   }, [events]);
+
+  // Get related events in a recurrence group
+  const getRelatedEvents = useCallback((event: Event): Event[] => {
+    if (!event.recurrenceGroupId) {
+      return [event];
+    }
+    return events.filter(e => e.recurrenceGroupId === event.recurrenceGroupId);
+  }, [events]);
+
+  // ============================================================================
+  // Recurring Event Delete
+  // ============================================================================
+
+  // Initiate recurring delete - show modal with related events
+  const initiateRecurringDelete = useCallback(async (event: Event) => {
+    if (!event.isRecurring || !event.recurrenceGroupId) {
+      // Not a recurring event, just use regular delete
+      await deleteEvent(event.id);
+      return;
+    }
+
+    // Get all related events in the recurrence group
+    const relatedEvents = getRelatedEvents(event);
+
+    setRecurringDeleteState({
+      visible: true,
+      event,
+      relatedEvents,
+    });
+  }, [deleteEvent, getRelatedEvents]);
+
+  // Confirm recurring delete with selected option
+  const confirmRecurringDelete = useCallback(async (
+    option: RecurringDeleteOption
+  ): Promise<{ deletedCount: number; deletedIds: string[] }> => {
+    const { event, relatedEvents } = recurringDeleteState;
+
+    if (!event) {
+      throw new Error('No event selected for deletion');
+    }
+
+    // If not a recurring event, just delete it
+    if (!event.recurrenceGroupId) {
+      const success = await deleteEvent(event.id);
+      setRecurringDeleteState({ visible: false, event: null, relatedEvents: [] });
+      return {
+        deletedCount: success ? 1 : 0,
+        deletedIds: success ? [event.id] : [],
+      };
+    }
+
+    try {
+      console.log('[CalendarContext] Deleting recurring events with option:', option);
+      const response = await eventsApi.deleteRecurringEvents(
+        event.id,
+        option,
+        event.recurrenceGroupId
+      );
+
+      if (response.success && response.data) {
+        const { deletedCount, deletedIds } = response.data;
+
+        // Update local state - remove deleted events
+        if (deletedIds.length > 0) {
+          setEvents(prev => prev.filter(e => !deletedIds.includes(e.id)));
+        }
+
+        console.log('[CalendarContext] Deleted', deletedCount, 'recurring events');
+
+        // Close modal
+        setRecurringDeleteState({ visible: false, event: null, relatedEvents: [] });
+
+        return { deletedCount, deletedIds };
+      } else {
+        throw new Error(response.error || 'Failed to delete recurring events');
+      }
+    } catch (err) {
+      console.error('[CalendarContext] Error deleting recurring events:', err);
+      throw err;
+    }
+  }, [recurringDeleteState, deleteEvent]);
+
+  // Cancel recurring delete modal
+  const cancelRecurringDelete = useCallback(() => {
+    setRecurringDeleteState({
+      visible: false,
+      event: null,
+      relatedEvents: [],
+    });
+  }, []);
 
   // Note: Sync removed - the sync endpoint requires localStorage data from web app
   // Mobile app now fetches from database source only to avoid localStorage-only events
@@ -553,8 +892,12 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     activeIntegration,
     syncingGoogle,
     lastGoogleSyncAt,
+    integrationsLoading,
+    integrationsLoaded,
     dragState,
     resizeState,
+    participantConfirmation,
+    recurringDeleteState,
     setSelectedDate,
     setCurrentView,
     goToToday,
@@ -562,12 +905,13 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     goToNext,
     fetchEvents,
     createEvent,
-    updateEvent,
+    updateEvent: updateEventWithConfirmation,
     deleteEvent,
     // Google Calendar actions
     fetchCalendarIntegrations,
     syncFromGoogleCalendar,
     initiateGoogleAuth,
+    disconnectIntegration,
     startDrag,
     endDrag,
     cancelDrag,
@@ -575,8 +919,16 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
     updateResize,
     endResize,
     cancelResize,
+    confirmParticipantUpdate,
+    cancelParticipantUpdate,
+    // Recurring delete actions
+    initiateRecurringDelete,
+    confirmRecurringDelete,
+    cancelRecurringDelete,
+    // Helpers
     getEventsForDate,
     getEventsForDateRange,
+    getRelatedEvents,
   };
 
   return (

@@ -3,8 +3,24 @@
  * @module lib/api/endpoints/events
  */
 
-import { apiClient } from '../client';
+import { apiClient, APIClient } from '../client';
 import { Event, ApiResponse, EventsQuery, CreateEventData } from '../types';
+
+/**
+ * Recurring delete options matching the web implementation
+ */
+export type RecurringDeleteOption =
+  | 'this_only'           // Delete only this occurrence
+  | 'this_and_following'  // Delete this and all future events
+  | 'all';                // Delete entire series
+
+/**
+ * Response from recurring delete API
+ */
+interface RecurringDeleteResponse {
+  deletedCount: number;
+  deletedIds: string[];
+}
 
 /**
  * Events API methods
@@ -128,5 +144,47 @@ export const eventsApi = {
    */
   getAppointments: async (params?: EventsQuery): Promise<ApiResponse<Event[]>> => {
     return apiClient.get<Event[]>('/api/appointments', params);
+  },
+
+  /**
+   * Delete recurring events with options
+   * Supports deleting: this event only, this and following, or all in series
+   *
+   * @param eventId - The ID of the event to start deletion from
+   * @param option - Delete option: 'this_only', 'this_and_following', or 'all'
+   * @param recurrenceGroupId - The group ID linking all events in the series
+   * @returns Response with deleted count and IDs
+   */
+  deleteRecurringEvents: async (
+    eventId: string,
+    option: RecurringDeleteOption,
+    recurrenceGroupId: string
+  ): Promise<ApiResponse<RecurringDeleteResponse>> => {
+    // Use request method directly to pass body with DELETE
+    const client = APIClient.getInstance();
+    return client.request<RecurringDeleteResponse>('/api/events/weekly-recurrence', {
+      method: 'DELETE',
+      body: JSON.stringify({
+        eventId,
+        option,
+        recurrenceGroupId,
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  },
+
+  /**
+   * Get all events in a recurrence group
+   *
+   * @param recurrenceGroupId - The group ID linking all events in the series
+   * @returns List of related events
+   */
+  getRelatedEvents: async (recurrenceGroupId: string): Promise<ApiResponse<Event[]>> => {
+    return apiClient.get<Event[]>('/api/events', {
+      source: 'database',
+      recurrenceGroupId,
+    });
   },
 };

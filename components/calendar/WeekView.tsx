@@ -1,6 +1,7 @@
 /**
  * WeekView - Weekly calendar view with day columns, drag-drop events,
  * and corner resize handles for multi-day event creation
+ * Includes conflict highlighting during drag operations
  */
 import React, { useMemo, useState, useCallback, useRef } from 'react';
 import {
@@ -17,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Event } from '../../lib/api/types';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import EventBlock, { PIXELS_PER_HOUR } from './EventBlock';
+import { getConflictingEvents } from '../../utils/eventConflicts';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const DAYS_IN_WEEK = 7;
@@ -82,13 +84,68 @@ export default function WeekView({
     dy: 0,
   });
 
-  // Resize state (top/bottom only)
+  // Resize state (top/bottom and corners)
   const [resizingEvent, setResizingEvent] = useState<Event | null>(null);
-  const [resizeHandle, setResizeHandle] = useState<'top' | 'bottom' | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null>(null);
   const [resizeOffset, setResizeOffset] = useState(0);
 
   // Disable scroll when interacting
   const isInteracting = draggingEvent !== null || cornerResize.event !== null || resizingEvent !== null;
+
+  // Calculate conflict zones during drag/resize
+  const conflictZones = useMemo(() => {
+    if (!isInteracting) return [];
+
+    const activeEvent = draggingEvent || resizingEvent;
+    if (!activeEvent) return [];
+
+    // Calculate the new time range based on drag/resize offset
+    const eventStart = new Date(activeEvent.startTime);
+    const eventEnd = new Date(activeEvent.endTime);
+
+    let newStart = new Date(eventStart);
+    let newEnd = new Date(eventEnd);
+
+    if (draggingEvent) {
+      // Drag moves both start and end by the same amount
+      const minuteChange = (dragOffset.dy / PIXELS_PER_HOUR) * 60;
+      const dayChange = Math.round(dragOffset.dx / DAY_COLUMN_WIDTH);
+      newStart = new Date(eventStart.getTime() + minuteChange * 60000 + dayChange * 24 * 60 * 60 * 1000);
+      newEnd = new Date(eventEnd.getTime() + minuteChange * 60000 + dayChange * 24 * 60 * 60 * 1000);
+    } else if (resizingEvent && resizeHandle) {
+      // Resize only changes one end
+      const minuteChange = (resizeOffset / PIXELS_PER_HOUR) * 60;
+      if (resizeHandle.includes('top')) {
+        newStart = new Date(eventStart.getTime() + minuteChange * 60000);
+      } else if (resizeHandle.includes('bottom')) {
+        newEnd = new Date(eventEnd.getTime() + minuteChange * 60000);
+      }
+    }
+
+    // Find conflicting events
+    const conflicts = getConflictingEvents(
+      newStart,
+      newEnd,
+      events,
+      activeEvent.id
+    );
+
+    // Return the positions for highlighting
+    return conflicts.map(conflict => {
+      const conflictStart = new Date(conflict.startTime);
+      const conflictEnd = new Date(conflict.endTime);
+      const startHour = conflictStart.getHours() + conflictStart.getMinutes() / 60;
+      const endHour = conflictEnd.getHours() + conflictEnd.getMinutes() / 60;
+      const dayIndex = conflictStart.getDay();
+
+      return {
+        id: conflict.id,
+        top: startHour * PIXELS_PER_HOUR,
+        height: (endHour - startHour) * PIXELS_PER_HOUR,
+        dayIndex,
+      };
+    });
+  }, [draggingEvent, resizingEvent, dragOffset, resizeOffset, resizeHandle, events, isInteracting]);
 
   // Get week dates
   const weekDates = useMemo(() => {
@@ -206,7 +263,7 @@ export default function WeekView({
   }, [draggingEvent, events, onEventUpdate]);
 
   // Handle resize start
-  const handleResizeStart = useCallback((event: Event, handle: 'top' | 'bottom') => {
+  const handleResizeStart = useCallback((event: Event, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => {
     console.log('[WeekView] Resize start:', event.title, 'handle:', handle);
     setResizingEvent(event);
     setResizeHandle(handle);
@@ -214,12 +271,12 @@ export default function WeekView({
   }, []);
 
   // Handle resize move
-  const handleResizeMove = useCallback((dy: number) => {
+  const handleResizeMove = useCallback((dy: number, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => {
     setResizeOffset(dy);
   }, []);
 
   // Handle resize end
-  const handleResizeEnd = useCallback((dy: number, handle: 'top' | 'bottom') => {
+  const handleResizeEnd = useCallback((dy: number, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => {
     if (!resizingEvent) return;
 
     const currentEvent = events.find(e => e.id === resizingEvent.id);
@@ -240,12 +297,15 @@ export default function WeekView({
       let newStart = new Date(oldStart);
       let newEnd = new Date(oldEnd);
 
-      if (handle === 'top') {
+      // Top handles (top, top-left, top-right) adjust start time
+      if (handle === 'top' || handle === 'top-left' || handle === 'top-right') {
         newStart = new Date(oldStart.getTime() + minuteChange * 60000);
         if (newStart >= oldEnd) {
           newStart = new Date(oldEnd.getTime() - 15 * 60000);
         }
-      } else {
+      }
+      // Bottom handles (bottom, bottom-left, bottom-right) adjust end time
+      else if (handle === 'bottom' || handle === 'bottom-left' || handle === 'bottom-right') {
         newEnd = new Date(oldEnd.getTime() + minuteChange * 60000);
         if (newEnd <= oldStart) {
           newEnd = new Date(oldStart.getTime() + 15 * 60000);
@@ -435,6 +495,27 @@ export default function WeekView({
                   </TouchableOpacity>
                 ))}
 
+                {/* Conflict zone highlights for this day */}
+                {conflictZones
+                  .filter((zone) => zone.dayIndex === dayIndex)
+                  .map((zone) => (
+                    <View
+                      key={`conflict-${zone.id}`}
+                      style={[
+                        styles.conflictZone,
+                        {
+                          top: zone.top,
+                          height: zone.height,
+                        },
+                      ]}
+                      pointerEvents="none"
+                    >
+                      <View style={styles.conflictZoneInner}>
+                        <Ionicons name="warning-outline" size={12} color="#ef4444" />
+                      </View>
+                    </View>
+                  ))}
+
                 {/* Events for this day */}
                 {getEventsForDate(date).map((event) => {
                   const layout = getEventLayout(event);
@@ -451,10 +532,13 @@ export default function WeekView({
                   }
 
                   if (isResizing) {
-                    if (resizeHandle === 'top') {
+                    // Top handles (top, top-left, top-right) adjust top and height
+                    if (resizeHandle === 'top' || resizeHandle === 'top-left' || resizeHandle === 'top-right') {
                       adjustedTop += resizeOffset;
                       adjustedHeight -= resizeOffset;
-                    } else {
+                    }
+                    // Bottom handles (bottom, bottom-left, bottom-right) adjust height only
+                    else if (resizeHandle === 'bottom' || resizeHandle === 'bottom-left' || resizeHandle === 'bottom-right') {
                       adjustedHeight += resizeOffset;
                     }
                   }
@@ -532,9 +616,9 @@ interface WeekEventBlockProps {
   onDragStart: (event: Event, dayIndex: number) => void;
   onDragMove: (dx: number, dy: number) => void;
   onDragEnd: (dx: number, dy: number) => void;
-  onResizeStart: (event: Event, handle: 'top' | 'bottom') => void;
-  onResizeMove: (dy: number) => void;
-  onResizeEnd: (dy: number, handle: 'top' | 'bottom') => void;
+  onResizeStart: (event: Event, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => void;
+  onResizeMove: (dy: number, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => void;
+  onResizeEnd: (dy: number, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => void;
   onCornerResizeStart: (event: Event, handle: CornerHandle, dayIndex: number) => void;
   onCornerResizeMove: (dx: number, dy: number) => void;
   onCornerResizeEnd: () => void;
@@ -600,7 +684,7 @@ function WeekEventBlock({
       onPanResponderMove: (_, gs) => {
         const snappedDy = Math.round(gs.dy / (PIXELS_PER_HOUR / 4)) * (PIXELS_PER_HOUR / 4);
         lastResize.current = snappedDy;
-        onResizeMove(snappedDy);
+        onResizeMove(snappedDy, 'top');
       },
       onPanResponderRelease: () => {
         onResizeEnd(lastResize.current, 'top');
@@ -623,7 +707,7 @@ function WeekEventBlock({
       onPanResponderMove: (_, gs) => {
         const snappedDy = Math.round(gs.dy / (PIXELS_PER_HOUR / 4)) * (PIXELS_PER_HOUR / 4);
         lastResize.current = snappedDy;
-        onResizeMove(snappedDy);
+        onResizeMove(snappedDy, 'bottom');
       },
       onPanResponderRelease: () => {
         onResizeEnd(lastResize.current, 'bottom');
@@ -900,5 +984,22 @@ const createStyles = (tokens: ThemeTokens) =>
       height: 2,
       backgroundColor: '#ef4444',
       zIndex: 100,
+    },
+    conflictZone: {
+      position: 'absolute',
+      left: 1,
+      right: 1,
+      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+      borderWidth: 1,
+      borderColor: '#ef4444',
+      borderStyle: 'dashed',
+      borderRadius: 4,
+      zIndex: 50,
+    },
+    conflictZoneInner: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      opacity: 0.7,
     },
   });

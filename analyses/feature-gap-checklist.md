@@ -63,9 +63,9 @@ Generated: December 24, 2025
 - [x] Email status badges - Fully implemented
 - [x] Billing mode toggle (fixed/hourly) - Fully implemented
 - [~] Receipt PDF generation - May be implemented (needs verification)
-- [ ] Invoice creation - Not implemented (Web has InvoiceModal)
-- [ ] Invoice management - Not implemented
-- [ ] Time tracker for hourly billing - Not implemented (Web has TimeTrackerModal)
+- [x] Invoice creation - Fully implemented (InvoiceModal with line items, payment terms, tax)
+- [x] Invoice management - Fully implemented (list, details, send, mark paid, duplicate, delete)
+- [x] Time tracker for hourly billing - Fully implemented (TimeTrackerModal with timer and manual entry modes)
 - [ ] Batch operations (bulk send, bulk delete) - Not implemented
 - [ ] Receipt archiving - Not implemented
 - [ ] Receipt duplication - Not implemented
@@ -109,8 +109,8 @@ Generated: December 24, 2025
 - [x] Event status display - Fully implemented
 - [~] Recurring events - Partially implemented (creation exists, complex delete options missing)
 - [~] Event participants - Partially implemented (confirmation modal exists)
-- [ ] Event conflicts detection - Not implemented (Web has comprehensive ConflictResolutionModal)
-- [ ] Event conflict resolution UI - Not implemented
+- [x] Event conflicts detection - Fully implemented (utils/eventConflicts.ts)
+- [x] Event conflict resolution UI - Fully implemented (ConflictWarningModal)
 
 #### Drag-Drop & Interaction
 - [x] Touch-based event dragging in day view - Fully implemented per spec
@@ -121,7 +121,7 @@ Generated: December 24, 2025
 - [ ] Multi-day spanning events UI - Needs verification
 - [ ] Week-to-week drag across boundaries - Needs verification
 - [ ] Visual feedback during drag (preview, tooltip) - Basic implementation, may need enhancement
-- [ ] Conflict highlighting during drag - Not implemented
+- [x] Conflict highlighting during drag - Fully implemented (DayView, WeekView)
 
 #### Quick Entry & Creation
 - [x] Quick entry sheet - Fully implemented
@@ -141,7 +141,7 @@ Generated: December 24, 2025
 - [ ] Calendar export - Not implemented
 
 #### Advanced Calendar Features
-- [ ] Recurring delete confirmation with options (this only, this and future, all) - Not implemented
+- [x] Recurring delete confirmation with options (this only, this and future, all) - Implemented (RecurringDeleteModal.tsx)
 - [ ] Event conflict detector with suggestions - Not implemented
 - [ ] Reschedule confirmation modal - Not implemented (Web has RescheduleConfirmationModal)
 - [ ] Resize confirmation modal - Not implemented (Web has ResizeConfirmationModal)
@@ -160,15 +160,15 @@ Generated: December 24, 2025
 - [x] Date picker modal - Fully implemented
 - [x] Quick entry sheet - Fully implemented
 - [x] Participant confirmation modal - Fully implemented
-- [ ] Delete confirmation modals - Mentioned as implemented but not found in code
+- [x] Delete confirmation modals - Fully implemented (DeleteConfirmationModal.tsx with showDeleteConfirmation utility; integrated with EventModal, InvoiceDetailsModal, TimeTrackerModal, ClientSelectorPanel)
 - [ ] Quote modal - Not implemented
 - [ ] Note modal - Not implemented
 - [ ] Appointment modal - Not implemented
 - [ ] Activity log modal - Not implemented
 - [ ] Account settings modal - Not implemented
 - [ ] Notifications modal - Not implemented
-- [ ] Time tracker modal - Not implemented
-- [ ] Invoice modal - Not implemented
+- [x] Time tracker modal - Fully implemented (TimeTrackerModal with timer, manual entry, and entries list)
+- [x] Invoice modal - Fully implemented (InvoiceModal with client/service selection, line items, and payment terms)
 
 #### Form Components
 - [x] Neomorphic input - Fully implemented
@@ -343,8 +343,8 @@ Generated: December 24, 2025
 ### Critical Gaps (Blocking Core Functionality)
 1. **Recurring Event Delete Options** - Users cannot properly manage recurring events
 2. **Event Conflict Detection** - No warning when creating overlapping events
-3. **Invoice Creation** - Core billing feature missing
-4. **Time Tracker** - Essential for hourly billing
+3. ~~**Invoice Creation** - Core billing feature missing~~ DONE - Invoice creation and management fully implemented
+4. ~~**Time Tracker** - Essential for hourly billing~~ DONE - TimeTrackerModal with timer and manual entry modes
 5. **Google Calendar Integration** - Key productivity feature
 
 ### High Priority (Important User Workflows)
@@ -437,8 +437,8 @@ Generated: December 24, 2025
 ### Phase 1: Critical Features (Sprint 1-2)
 - Implement recurring event delete options modal
 - Add event conflict detection UI
-- Create invoice management screens
-- Build time tracker modal
+- ~~Create invoice management screens~~ DONE - InvoiceModal, InvoiceDetailsModal, integrated into BillingScreen
+- ~~Build time tracker modal~~ DONE - TimeTrackerModal with timer, manual entry, entries list, integrated into BillingScreen
 - Add delete confirmation modals
 
 ### Phase 2: Core Feature Parity (Sprint 3-5)

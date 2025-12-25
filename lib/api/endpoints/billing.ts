@@ -151,6 +151,117 @@ export const billingApi = {
   },
 
   /**
+   * Get single invoice by ID
+   *
+   * @param invoiceId - Invoice ID
+   * @returns Invoice details
+   */
+  getInvoice: async (invoiceId: string): Promise<ApiResponse<BillingDocument>> => {
+    return apiClient.get<BillingDocument>(`/api/billing/invoices/${invoiceId}`);
+  },
+
+  /**
+   * Create new invoice
+   *
+   * @param data - Invoice data
+   * @returns Created invoice
+   */
+  createInvoice: async (
+    data: any
+  ): Promise<ApiResponse<BillingDocument>> => {
+    return apiClient.post<BillingDocument>('/api/billing/invoices', data);
+  },
+
+  /**
+   * Update existing invoice
+   *
+   * @param invoiceId - Invoice ID
+   * @param data - Updated data
+   * @returns Updated invoice
+   */
+  updateInvoice: async (
+    invoiceId: string,
+    data: Partial<BillingDocument>
+  ): Promise<ApiResponse<BillingDocument>> => {
+    return apiClient.patch<BillingDocument>(
+      `/api/billing/invoices/${invoiceId}`,
+      data
+    );
+  },
+
+  /**
+   * Delete invoice
+   *
+   * @param invoiceId - Invoice ID
+   * @returns Success response
+   */
+  deleteInvoice: async (invoiceId: string): Promise<ApiResponse<void>> => {
+    return apiClient.delete<void>(`/api/billing/invoices/${invoiceId}`);
+  },
+
+  /**
+   * Send invoice via email
+   *
+   * @param invoiceId - Invoice ID
+   * @param email - Recipient email (optional, uses client email if not provided)
+   * @returns Send result
+   */
+  sendInvoice: async (
+    invoiceId: string,
+    email?: string
+  ): Promise<ApiResponse<any>> => {
+    return apiClient.post<any>(`/api/billing/invoices/${invoiceId}/send`, {
+      email,
+    });
+  },
+
+  /**
+   * Mark invoice as paid
+   *
+   * @param invoiceId - Invoice ID
+   * @param paidAt - Payment date (optional, defaults to now)
+   * @returns Updated invoice
+   */
+  markInvoicePaid: async (
+    invoiceId: string,
+    paidAt?: Date
+  ): Promise<ApiResponse<BillingDocument>> => {
+    return apiClient.post<BillingDocument>(`/api/billing/invoices/${invoiceId}/mark-paid`, {
+      paidAt: paidAt || new Date(),
+    });
+  },
+
+  /**
+   * Archive invoice
+   *
+   * @param invoiceId - Invoice ID
+   * @returns Success response
+   */
+  archiveInvoice: async (invoiceId: string): Promise<ApiResponse<void>> => {
+    return apiClient.post<void>(`/api/billing/invoices/${invoiceId}/archive`);
+  },
+
+  /**
+   * Duplicate invoice
+   *
+   * @param invoiceId - Invoice ID
+   * @returns New invoice based on the original
+   */
+  duplicateInvoice: async (invoiceId: string): Promise<ApiResponse<BillingDocument>> => {
+    return apiClient.post<BillingDocument>(`/api/billing/invoices/${invoiceId}/duplicate`);
+  },
+
+  /**
+   * Get invoices by client ID
+   *
+   * @param clientId - Client ID
+   * @returns List of invoices for the client
+   */
+  getInvoicesByClientId: async (clientId: string): Promise<ApiResponse<BillingDocument[]>> => {
+    return apiClient.get<BillingDocument[]>('/api/billing/invoices', { clientId });
+  },
+
+  /**
    * Get client billing information
    *
    * @param clientId - Client ID

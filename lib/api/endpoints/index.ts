@@ -6,6 +6,7 @@
 export { clientsApi } from './clients';
 export { conversationsApi } from './conversations';
 export { eventsApi } from './events';
+export type { RecurringDeleteOption } from './events';
 export { billingApi } from './billing';
 export { testimonialsApi } from './testimonials';
 export { participantsApi } from './participants';

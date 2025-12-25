@@ -15,7 +15,9 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import { CalendarProvider, useCalendar, CalendarView } from '../../context/CalendarContext';
-import { DayView, WeekView, MonthView, EventModal, QuickEntrySheet } from '../calendar';
+import { DayView, WeekView, MonthView, YearView, EventModal, QuickEntrySheet } from '../calendar';
+import ParticipantConfirmationModal from '../modals/ParticipantConfirmationModal';
+import RecurringDeleteModal from '../modals/RecurringDeleteModal';
 import { Event, CreateEventData } from '../../lib/api/types';
 
 function CalendarContent() {
@@ -35,6 +37,14 @@ function CalendarContent() {
     createEvent,
     updateEvent,
     deleteEvent,
+    participantConfirmation,
+    confirmParticipantUpdate,
+    cancelParticipantUpdate,
+    // Recurring delete
+    recurringDeleteState,
+    initiateRecurringDelete,
+    confirmRecurringDelete,
+    cancelRecurringDelete,
   } = useCalendar();
 
   // Modal state
@@ -87,6 +97,8 @@ function CalendarContent() {
           month: 'long',
           year: 'numeric',
         });
+      case 'year':
+        return selectedDate.getFullYear().toString();
     }
   }, [selectedDate, currentView]);
 
@@ -109,10 +121,18 @@ function CalendarContent() {
   // Handle day press (switch to day view)
   const handleDayPress = useCallback((date: Date) => {
     setSelectedDate(date);
-    if (currentView === 'month') {
+    if (currentView === 'month' || currentView === 'year') {
       setCurrentView('day');
     }
   }, [currentView, setSelectedDate, setCurrentView]);
+
+  // Handle create event from month view plus button
+  const handleCreateEventFromDate = useCallback((date: Date) => {
+    setSelectedEvent(null);
+    setInitialDate(date);
+    setInitialHour(9); // Default to 9 AM
+    setModalVisible(true);
+  }, []);
 
   // Handle event update (drag/resize)
   const handleEventUpdate = useCallback(async (event: Event, newStart: string, newEnd: string) => {
@@ -136,10 +156,18 @@ function CalendarContent() {
     }
   }, [selectedEvent, createEvent, updateEvent]);
 
-  // Handle delete from modal
+  // Handle delete from modal - check if recurring event
   const handleDeleteEvent = useCallback(async (eventId: string) => {
-    await deleteEvent(eventId);
-  }, [deleteEvent]);
+    // Find the event to check if it's recurring
+    const event = events.find(e => e.id === eventId);
+    if (event && event.isRecurring && event.recurrenceGroupId) {
+      // Show recurring delete modal
+      await initiateRecurringDelete(event);
+    } else {
+      // Regular delete
+      await deleteEvent(eventId);
+    }
+  }, [events, deleteEvent, initiateRecurringDelete]);
 
   // Handle adding multiple events from quick entry
   const handleAddMultipleEvents = useCallback(async (events: CreateEventData[]) => {
@@ -201,6 +229,7 @@ function CalendarContent() {
     { view: 'day', label: 'Day' },
     { view: 'week', label: 'Week' },
     { view: 'month', label: 'Month' },
+    { view: 'year', label: 'Year' },
   ];
 
   return (
@@ -292,6 +321,14 @@ function CalendarContent() {
             events={events}
             onDayPress={handleDayPress}
             onEventPress={handleEventPress}
+            onCreateEvent={handleCreateEventFromDate}
+          />
+        )}
+        {currentView === 'year' && (
+          <YearView
+            date={selectedDate}
+            events={events}
+            onDayPress={handleDayPress}
           />
         )}
       </View>
@@ -353,6 +390,7 @@ function CalendarContent() {
         initialDate={initialDate}
         initialHour={initialHour}
         entryType={newEntryType}
+        existingEvents={events}
         onClose={() => {
           setModalVisible(false);
           setSelectedEvent(null);
@@ -419,6 +457,27 @@ function CalendarContent() {
           onChange={handleDateChange}
         />
       )}
+
+      {/* Participant Confirmation Modal */}
+      <ParticipantConfirmationModal
+        visible={participantConfirmation.visible}
+        event={participantConfirmation.event}
+        oldStartTime={participantConfirmation.oldStartTime || ''}
+        oldEndTime={participantConfirmation.oldEndTime || ''}
+        newStartTime={participantConfirmation.newStartTime || ''}
+        newEndTime={participantConfirmation.newEndTime || ''}
+        onConfirm={confirmParticipantUpdate}
+        onCancel={cancelParticipantUpdate}
+      />
+
+      {/* Recurring Delete Modal */}
+      <RecurringDeleteModal
+        visible={recurringDeleteState.visible}
+        event={recurringDeleteState.event}
+        relatedEvents={recurringDeleteState.relatedEvents}
+        onConfirm={confirmRecurringDelete}
+        onCancel={cancelRecurringDelete}
+      />
     </SafeAreaView>
   );
 }

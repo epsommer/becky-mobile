@@ -234,6 +234,7 @@ export interface Event {
   isRecurring?: boolean;
   recurrence?: RecurrenceRule;
   parentEventId?: string;
+  recurrenceGroupId?: string;
   notifications?: NotificationRule[];
   participants?: EventParticipant[];
   googleCalendarEventId?: string;

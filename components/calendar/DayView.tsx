@@ -1,5 +1,6 @@
 /**
  * DayView - Daily calendar view with hour slots and drag-drop events
+ * Includes conflict highlighting during drag operations
  */
 import React, { useMemo, useState, useCallback, useRef } from 'react';
 import {
@@ -14,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Event } from '../../lib/api/types';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import EventBlock, { PIXELS_PER_HOUR } from './EventBlock';
+import { getConflictingEvents } from '../../utils/eventConflicts';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const WORKING_HOURS_START = 6;
@@ -41,11 +43,63 @@ export default function DayView({
   const [draggingEvent, setDraggingEvent] = useState<Event | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [resizingEvent, setResizingEvent] = useState<Event | null>(null);
-  const [resizeHandle, setResizeHandle] = useState<'top' | 'bottom' | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null>(null);
   const [resizeOffset, setResizeOffset] = useState(0);
 
   // Disable scroll when dragging/resizing
   const isInteracting = draggingEvent !== null || resizingEvent !== null;
+
+  // Calculate conflict zones during drag/resize
+  const conflictZones = useMemo(() => {
+    if (!isInteracting) return [];
+
+    const activeEvent = draggingEvent || resizingEvent;
+    if (!activeEvent) return [];
+
+    // Calculate the new time range based on drag/resize offset
+    const eventStart = new Date(activeEvent.startTime);
+    const eventEnd = new Date(activeEvent.endTime);
+
+    let newStart = new Date(eventStart);
+    let newEnd = new Date(eventEnd);
+
+    if (draggingEvent) {
+      // Drag moves both start and end by the same amount
+      const minuteChange = (dragOffset / PIXELS_PER_HOUR) * 60;
+      newStart = new Date(eventStart.getTime() + minuteChange * 60000);
+      newEnd = new Date(eventEnd.getTime() + minuteChange * 60000);
+    } else if (resizingEvent && resizeHandle) {
+      // Resize only changes one end
+      const minuteChange = (resizeOffset / PIXELS_PER_HOUR) * 60;
+      if (resizeHandle.includes('top')) {
+        newStart = new Date(eventStart.getTime() + minuteChange * 60000);
+      } else if (resizeHandle.includes('bottom')) {
+        newEnd = new Date(eventEnd.getTime() + minuteChange * 60000);
+      }
+    }
+
+    // Find conflicting events
+    const conflicts = getConflictingEvents(
+      newStart,
+      newEnd,
+      events,
+      activeEvent.id
+    );
+
+    // Return the positions for highlighting
+    return conflicts.map(conflict => {
+      const conflictStart = new Date(conflict.startTime);
+      const conflictEnd = new Date(conflict.endTime);
+      const startHour = conflictStart.getHours() + conflictStart.getMinutes() / 60;
+      const endHour = conflictEnd.getHours() + conflictEnd.getMinutes() / 60;
+
+      return {
+        id: conflict.id,
+        top: startHour * PIXELS_PER_HOUR,
+        height: (endHour - startHour) * PIXELS_PER_HOUR,
+      };
+    });
+  }, [draggingEvent, resizingEvent, dragOffset, resizeOffset, resizeHandle, events]);
 
   // Format hour for display
   const formatHour = (hour: number) => {
@@ -144,7 +198,7 @@ export default function DayView({
   };
 
   // Handle resize start
-  const handleResizeStart = useCallback((event: Event, handle: 'top' | 'bottom') => {
+  const handleResizeStart = useCallback((event: Event, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => {
     console.log('[DayView] Resize start:', event.title, 'handle:', handle);
     console.log('[DayView] Event times:', event.startTime, 'to', event.endTime);
     setResizingEvent(event);
@@ -153,7 +207,7 @@ export default function DayView({
   }, []);
 
   // Handle resize move - update state for visual feedback
-  const handleResizeMove = useCallback((dy: number, handle: 'top' | 'bottom') => {
+  const handleResizeMove = useCallback((dy: number, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => {
     setResizeOffset(dy);
   }, []);
 
@@ -177,7 +231,7 @@ export default function DayView({
   }, [events]);
 
   // Handle resize end - receives dy and handle from EventBlock
-  const handleResizeEnd = useCallback((dy: number, handle: 'top' | 'bottom') => {
+  const handleResizeEnd = useCallback((dy: number, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => {
     console.log('[DayView] ========== RESIZE END ==========');
     console.log('[DayView] Resize end called, dy:', dy, 'handle:', handle);
     console.log('[DayView] Current resizeOffset state:', resizeOffset);
@@ -211,7 +265,9 @@ export default function DayView({
 
       console.log('[DayView] Current times - Start:', formatTimeForLog(oldStart), 'End:', formatTimeForLog(oldEnd));
 
-      if (handle === 'top') {
+      // Handle corner and edge resize handles
+      // Top handles (top, top-left, top-right) adjust start time
+      if (handle === 'top' || handle === 'top-left' || handle === 'top-right') {
         newStart = new Date(oldStart.getTime() + minuteChange * 60000);
         // Ensure minimum 15 min duration
         if (newStart >= oldEnd) {
@@ -219,7 +275,9 @@ export default function DayView({
           console.log('[DayView] Clamped start time to maintain 15min minimum');
         }
         console.log('[DayView] TOP resize: Start', formatTimeForLog(oldStart), '->', formatTimeForLog(newStart));
-      } else {
+      }
+      // Bottom handles (bottom, bottom-left, bottom-right) adjust end time
+      else if (handle === 'bottom' || handle === 'bottom-left' || handle === 'bottom-right') {
         newEnd = new Date(oldEnd.getTime() + minuteChange * 60000);
         // Ensure minimum 15 min duration
         if (newEnd <= oldStart) {
@@ -305,6 +363,25 @@ export default function DayView({
             </View>
           )}
 
+          {/* Conflict zone highlights - shown during drag/resize */}
+          {conflictZones.map((zone) => (
+            <View
+              key={`conflict-${zone.id}`}
+              style={[
+                styles.conflictZone,
+                {
+                  top: zone.top,
+                  height: zone.height,
+                },
+              ]}
+              pointerEvents="none"
+            >
+              <View style={styles.conflictZoneInner}>
+                <Ionicons name="warning-outline" size={16} color="#ef4444" />
+              </View>
+            </View>
+          ))}
+
           {/* Events */}
           {events.map((event) => {
             const layout = getEventLayout(event);
@@ -320,10 +397,13 @@ export default function DayView({
             }
 
             if (isResizing) {
-              if (resizeHandle === 'top') {
+              // Top handles (top, top-left, top-right) adjust top and height
+              if (resizeHandle === 'top' || resizeHandle === 'top-left' || resizeHandle === 'top-right') {
                 adjustedTop += resizeOffset;
                 adjustedHeight -= resizeOffset;
-              } else {
+              }
+              // Bottom handles (bottom, bottom-left, bottom-right) adjust height only
+              else if (resizeHandle === 'bottom' || resizeHandle === 'bottom-left' || resizeHandle === 'bottom-right') {
                 adjustedHeight += resizeOffset;
               }
             }
@@ -454,5 +534,22 @@ const createStyles = (tokens: ThemeTokens) =>
       flex: 1,
       height: 2,
       backgroundColor: '#ef4444',
+    },
+    conflictZone: {
+      position: 'absolute',
+      left: 56,
+      right: 8,
+      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+      borderWidth: 2,
+      borderColor: '#ef4444',
+      borderStyle: 'dashed',
+      borderRadius: 6,
+      zIndex: 50,
+    },
+    conflictZoneInner: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      opacity: 0.7,
     },
   });

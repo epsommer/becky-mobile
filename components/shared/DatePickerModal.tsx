@@ -21,6 +21,7 @@ interface DatePickerModalProps {
   title?: string;
   minimumDate?: Date;
   maximumDate?: Date;
+  mode?: "date" | "time" | "datetime";
 }
 
 export default function DatePickerModal({
@@ -31,23 +32,48 @@ export default function DatePickerModal({
   title = "Select Date",
   minimumDate,
   maximumDate,
+  mode = "date",
 }: DatePickerModalProps) {
   const { tokens } = useTheme();
   const [selectedDate, setSelectedDate] = useState(initialDate);
+  const [pickerMode, setPickerMode] = useState<"date" | "time">(mode === "time" ? "time" : "date");
 
   const handleConfirm = () => {
+    // For datetime mode, only confirm after both date and time are set
+    if (mode === "datetime" && pickerMode === "date") {
+      setPickerMode("time");
+      return;
+    }
     onSelectDate(selectedDate);
     onClose();
+    // Reset picker mode for next open
+    setPickerMode(mode === "time" ? "time" : "date");
   };
 
   const handleDateChange = (event: any, date?: Date) => {
     if (Platform.OS === 'android') {
-      onClose();
       if (date) {
+        setSelectedDate(date);
+        // For datetime mode on Android, switch to time picker after date selection
+        if (mode === "datetime" && pickerMode === "date") {
+          setPickerMode("time");
+          return;
+        }
         onSelectDate(date);
       }
+      onClose();
+      setPickerMode(mode === "time" ? "time" : "date");
     } else if (date) {
       setSelectedDate(date);
+    }
+  };
+
+  const handleBack = () => {
+    if (mode === "datetime" && pickerMode === "time") {
+      setPickerMode("date");
+    } else {
+      onClose();
+      setPickerMode(mode === "time" ? "time" : "date");
     }
   };
 
@@ -58,7 +84,7 @@ export default function DatePickerModal({
     return (
       <DateTimePicker
         value={selectedDate}
-        mode="date"
+        mode={pickerMode}
         display="default"
         onChange={handleDateChange}
         minimumDate={minimumDate}
@@ -67,18 +93,34 @@ export default function DatePickerModal({
     );
   }
 
+  // Get title based on mode and current picker step
+  const getDisplayTitle = () => {
+    if (mode === "datetime") {
+      return pickerMode === "date" ? `${title} - Date` : `${title} - Time`;
+    }
+    return title;
+  };
+
+  // Get confirm button text
+  const getConfirmText = () => {
+    if (mode === "datetime" && pickerMode === "date") {
+      return "Next";
+    }
+    return "Confirm";
+  };
+
   // On iOS, we show it in a custom modal
   return (
     <Modal
       visible={isOpen}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleBack}
     >
       <TouchableOpacity
         style={styles.backdrop}
         activeOpacity={1}
-        onPress={onClose}
+        onPress={handleBack}
       >
         <View
           style={[styles.modalContent, { backgroundColor: tokens.surface }]}
@@ -86,17 +128,27 @@ export default function DatePickerModal({
         >
           <View style={[styles.header, { borderBottomColor: tokens.border }]}>
             <Text style={[styles.title, { color: tokens.textPrimary }]}>
-              {title}
+              {getDisplayTitle()}
             </Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity onPress={handleBack} style={styles.closeButton}>
               <Ionicons name="close" size={20} color={tokens.textPrimary} />
             </TouchableOpacity>
           </View>
 
+          {/* Show selected date preview for datetime mode when picking time */}
+          {mode === "datetime" && pickerMode === "time" && (
+            <View style={[styles.datePreview, { backgroundColor: tokens.background, borderColor: tokens.border }]}>
+              <Text style={[styles.datePreviewLabel, { color: tokens.textSecondary }]}>Selected Date</Text>
+              <Text style={[styles.datePreviewValue, { color: tokens.textPrimary }]}>
+                {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.pickerContainer}>
             <DateTimePicker
               value={selectedDate}
-              mode="date"
+              mode={pickerMode}
               display="spinner"
               onChange={handleDateChange}
               minimumDate={minimumDate}
@@ -108,10 +160,10 @@ export default function DatePickerModal({
           <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.button, styles.cancelButton, { borderColor: tokens.border }]}
-              onPress={onClose}
+              onPress={handleBack}
             >
               <Text style={[styles.buttonText, { color: tokens.textSecondary }]}>
-                Cancel
+                {mode === "datetime" && pickerMode === "time" ? "Back" : "Cancel"}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -119,7 +171,7 @@ export default function DatePickerModal({
               onPress={handleConfirm}
             >
               <Text style={[styles.buttonText, { color: tokens.background }]}>
-                Confirm
+                {getConfirmText()}
               </Text>
             </TouchableOpacity>
           </View>
@@ -161,6 +213,25 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
+  },
+  datePreview: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  datePreviewLabel: {
+    fontSize: 11,
+    fontFamily: "lores-9-wide",
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  datePreviewValue: {
+    fontSize: 16,
+    fontFamily: "Bytesized-Regular",
+    fontWeight: "600",
   },
   pickerContainer: {
     paddingVertical: 16,

@@ -12,6 +12,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 import { useApi } from "../lib/hooks/useApi";
 import { clientsApi } from "../lib/api/endpoints";
 import ReceiptModal from "./billing/ReceiptModal";
+import TimeTrackerModal from "./modals/TimeTrackerModal";
+import { showDeleteConfirmation } from "./modals/DeleteConfirmationModal";
 
 interface SelectorClient {
   id: string;
@@ -57,6 +59,8 @@ export default function ClientSelectorPanel({
   const [expandedClientId, setExpandedClientId] = React.useState<string | null>(null);
   const [showReceiptModal, setShowReceiptModal] = React.useState(false);
   const [receiptClientId, setReceiptClientId] = React.useState<string | null>(null);
+  const [showTimeTrackerModal, setShowTimeTrackerModal] = React.useState(false);
+  const [timerClientId, setTimerClientId] = React.useState<string | null>(null);
 
   // Animation for list appearance
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -180,13 +184,54 @@ export default function ClientSelectorPanel({
   const handleDeleteClient = (client: SelectorClient) => {
     console.log('[ClientSelectorPanel] Delete client:', client);
     setOpenMenuId(null);
-    // TODO: Show confirmation dialog then delete
+
+    showDeleteConfirmation({
+      title: 'Delete Client?',
+      message: 'This will permanently remove this client and all associated data.',
+      itemName: client.name,
+      onConfirm: async () => {
+        try {
+          const response = await clientsApi.deleteClient(client.id);
+          if (response.success) {
+            console.log('[ClientSelectorPanel] Client deleted:', client.id);
+            // Refresh the client list by triggering a re-fetch
+            // Note: The useApi hook will need to be updated to support manual refresh
+            // For now, we rely on the next fetch cycle
+          } else {
+            console.error('[ClientSelectorPanel] Failed to delete client:', response);
+          }
+        } catch (error) {
+          console.error('[ClientSelectorPanel] Error deleting client:', error);
+        }
+      },
+    });
   };
 
   // Batch operation handlers
   const handleBatchDelete = () => {
+    const count = selectedClients.size;
+    if (count === 0) return;
+
     console.log('[ClientSelectorPanel] Batch delete:', Array.from(selectedClients));
-    // TODO: Show confirmation dialog then delete selected clients
+
+    showDeleteConfirmation({
+      title: `Delete ${count} Client${count > 1 ? 's' : ''}?`,
+      message: `This will permanently remove ${count} client${count > 1 ? 's' : ''} and all associated data.`,
+      confirmText: `Delete ${count}`,
+      onConfirm: async () => {
+        try {
+          const clientIds = Array.from(selectedClients);
+          // Delete clients one by one (could be optimized with a batch API endpoint)
+          for (const clientId of clientIds) {
+            await clientsApi.deleteClient(clientId);
+          }
+          console.log('[ClientSelectorPanel] Batch delete completed');
+          setSelectedClients(new Set());
+        } catch (error) {
+          console.error('[ClientSelectorPanel] Error during batch delete:', error);
+        }
+      },
+    });
   };
 
   const handleBatchExport = () => {
@@ -222,7 +267,8 @@ export default function ClientSelectorPanel({
 
   const handleTimer = (client: SelectorClient) => {
     console.log('[ClientSelectorPanel] Start timer:', client);
-    // TODO: Start time tracking
+    setTimerClientId(client.id);
+    setShowTimeTrackerModal(true);
   };
 
   const selectedCount = selectedClients.size;
@@ -464,6 +510,19 @@ export default function ClientSelectorPanel({
           setReceiptClientId(null);
         }}
         initialClientId={receiptClientId || undefined}
+      />
+
+      {/* Time Tracker Modal */}
+      <TimeTrackerModal
+        isOpen={showTimeTrackerModal}
+        onClose={() => {
+          setShowTimeTrackerModal(false);
+          setTimerClientId(null);
+        }}
+        initialClientId={timerClientId || undefined}
+        onTimeEntryCreated={() => {
+          console.log('[ClientSelectorPanel] Time entry created');
+        }}
       />
     </View>
   );

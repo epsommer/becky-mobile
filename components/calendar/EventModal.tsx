@@ -1,6 +1,7 @@
 /**
  * EventModal - Modal for creating and editing calendar events/tasks
  * Features: all-day, multi-day, recurring, priority, clients, participants, location, notifications
+ * Includes conflict detection when creating or editing events
  */
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -31,6 +32,8 @@ import {
 import { clientsApi } from '../../lib/api/endpoints';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import LocationAutocomplete from './LocationAutocomplete';
+import ConflictWarningModal, { ConflictResolutionOption } from '../modals/ConflictWarningModal';
+import { detectConflicts, ConflictResult } from '../../utils/eventConflicts';
 
 type EntryType = 'event' | 'task';
 
@@ -40,6 +43,7 @@ interface EventModalProps {
   initialDate?: Date;
   initialHour?: number;
   entryType?: EntryType;
+  existingEvents?: Event[]; // For conflict detection
   onClose: () => void;
   onSave: (data: CreateEventData) => Promise<void>;
   onDelete?: (eventId: string) => Promise<void>;
@@ -85,6 +89,7 @@ export default function EventModal({
   initialDate,
   initialHour,
   entryType = 'event',
+  existingEvents = [],
   onClose,
   onSave,
   onDelete,
@@ -96,6 +101,11 @@ export default function EventModal({
   // Internal entry type state
   const [currentEntryType, setCurrentEntryType] = useState<EntryType>(entryType);
   const isTask = currentEntryType === 'task';
+
+  // Conflict detection state
+  const [conflictWarningVisible, setConflictWarningVisible] = useState(false);
+  const [detectedConflicts, setDetectedConflicts] = useState<ConflictResult | null>(null);
+  const [pendingEventData, setPendingEventData] = useState<CreateEventData | null>(null);
 
   // Basic form state
   const [title, setTitle] = useState('');
@@ -351,7 +361,93 @@ export default function EventModal({
     }
   };
 
-  // Handle save
+  // Build event data from form state
+  const buildEventData = useCallback((): CreateEventData => {
+    let finalStartDate = new Date(startDate);
+    let finalEndDate = new Date(endDate);
+
+    if (isTask) {
+      // Tasks have 30-min duration for calendar display
+      finalEndDate = new Date(finalStartDate);
+      finalEndDate.setMinutes(finalEndDate.getMinutes() + 30);
+    } else if (isAllDay) {
+      // All-day events: set times to full day boundaries
+      finalStartDate.setHours(0, 0, 0, 0);
+      if (isMultiDay) {
+        // Multi-day all-day: end date is user-selected, set to end of that day
+        finalEndDate.setHours(23, 59, 59, 999);
+      } else {
+        // Single all-day: same day
+        finalEndDate = new Date(finalStartDate);
+        finalEndDate.setHours(23, 59, 59, 999);
+      }
+    }
+    // Multi-day and regular timed events: no modification needed
+
+    return {
+      title: title.trim(),
+      description: description.trim() || undefined,
+      location: location.trim() || undefined,
+      service: service || undefined,
+      startTime: finalStartDate.toISOString(),
+      endTime: finalEndDate.toISOString(),
+      type: isTask ? 'task' : 'event',
+      priority,
+      isAllDay,
+      isMultiDay,
+      isRecurring,
+      recurrence: isRecurring ? recurrence : undefined,
+      notifications: notifications.filter(n => n.enabled),
+      participants: participants.length > 0 ? participants : undefined,
+      clientId: selectedClient?.id,
+      clientName: selectedClient?.name,
+    };
+  }, [
+    title, description, location, service, startDate, endDate,
+    isTask, isAllDay, isMultiDay, isRecurring, priority,
+    recurrence, notifications, participants, selectedClient,
+  ]);
+
+  // Actually save the event (bypassing conflict check)
+  const performSave = useCallback(async (eventData: CreateEventData) => {
+    setSaving(true);
+    try {
+      await onSave(eventData);
+      onClose();
+    } catch (error) {
+      console.error('[EventModal] Error saving:', error);
+      Alert.alert('Error', `Failed to save ${isTask ? 'task' : 'event'}`);
+    } finally {
+      setSaving(false);
+    }
+  }, [onSave, onClose, isTask]);
+
+  // Handle conflict resolution
+  const handleConflictResolution = useCallback((option: ConflictResolutionOption) => {
+    setConflictWarningVisible(false);
+
+    switch (option) {
+      case 'create_anyway':
+        // Proceed with save despite conflicts
+        if (pendingEventData) {
+          performSave(pendingEventData);
+        }
+        break;
+      case 'adjust_time':
+        // Close conflict modal, user will adjust time
+        // Keep form open for editing
+        break;
+      case 'cancel':
+        // Cancel the save, close everything
+        onClose();
+        break;
+    }
+
+    setPendingEventData(null);
+    setDetectedConflicts(null);
+  }, [pendingEventData, performSave, onClose]);
+
+  // Handle save with conflict detection
   const handleSave = useCallback(async () => {
     if (!title.trim()) {
       Alert.alert('Error', `Please enter a title for the ${isTask ? 'task' : 'event'}`);
@@ -363,64 +459,36 @@ export default function EventModal({
       return;
     }
 
-    setSaving(true);
-    try {
-      let finalStartDate = new Date(startDate);
-      let finalEndDate = new Date(endDate);
+    const eventData = buildEventData();
 
-      if (isTask) {
-        // Tasks have 30-min duration for calendar display
-        finalEndDate = new Date(finalStartDate);
-        finalEndDate.setMinutes(finalEndDate.getMinutes() + 30);
-      } else if (isAllDay) {
-        // All-day events: set times to full day boundaries
-        finalStartDate.setHours(0, 0, 0, 0);
-        if (isMultiDay) {
-          // Multi-day all-day: end date is user-selected, set to end of that day
-          finalEndDate.setHours(23, 59, 59, 999);
-        } else {
-          // Single all-day: same day
-          finalEndDate = new Date(finalStartDate);
-          finalEndDate.setHours(23, 59, 59, 999);
-        }
-      } else if (isMultiDay) {
-        // Multi-day with specific times: keep user-selected start/end date+times
-        // (no modification needed, user has full control)
+    // Check for conflicts (only for non-task, non-all-day events)
+    if (!isTask && !isAllDay && existingEvents.length > 0) {
+      const conflicts = detectConflicts(
+        {
+          id: event?.id, // Pass existing ID if editing
+          title: eventData.title,
+          startTime: eventData.startTime,
+          endTime: eventData.endTime,
+          clientId: eventData.clientId,
+          clientName: eventData.clientName,
+        },
+        existingEvents
+      );
+
+      if (conflicts.hasConflicts) {
+        // Show conflict warning modal
+        setDetectedConflicts(conflicts);
+        setPendingEventData(eventData);
+        setConflictWarningVisible(true);
+        return;
       }
-      // Regular single-day timed events: no modification needed
-
-      const eventData: CreateEventData = {
-        title: title.trim(),
-        description: description.trim() || undefined,
-        location: location.trim() || undefined,
-        service: service || undefined,
-        startTime: finalStartDate.toISOString(),
-        endTime: finalEndDate.toISOString(),
-        type: isTask ? 'task' : 'event',
-        priority,
-        isAllDay,
-        isMultiDay,
-        isRecurring,
-        recurrence: isRecurring ? recurrence : undefined,
-        notifications: notifications.filter(n => n.enabled),
-        participants: participants.length > 0 ? participants : undefined,
-        clientId: selectedClient?.id,
-        clientName: selectedClient?.name,
-      };
-
-      await onSave(eventData);
-      onClose();
-    } catch (error) {
-      console.error('[EventModal] Error saving:', error);
-      Alert.alert('Error', `Failed to save ${isTask ? 'task' : 'event'}`);
-    } finally {
-      setSaving(false);
     }
+
+    // No conflicts, proceed with save
+    await performSave(eventData);
   }, [
-    title, description, location, service, startDate, endDate,
-    isTask, isAllDay, isMultiDay, isRecurring, priority,
-    recurrence, notifications, participants, selectedClient,
-    onSave, onClose,
+    title, isTask, isAllDay, endDate, startDate,
+    buildEventData, existingEvents, event?.id, performSave,
   ]);
 
   // Handle delete
@@ -1119,6 +1187,23 @@ export default function EventModal({
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             minuteInterval={15}
             onChange={(_, date) => handleEndTimeChange(date)}
+          />
+        )}
+
+        {/* Conflict Warning Modal */}
+        {detectedConflicts && pendingEventData && (
+          <ConflictWarningModal
+            visible={conflictWarningVisible}
+            conflicts={detectedConflicts}
+            proposedEventTitle={pendingEventData.title}
+            proposedStartTime={pendingEventData.startTime}
+            proposedEndTime={pendingEventData.endTime}
+            onResolve={handleConflictResolution}
+            onClose={() => {
+              setConflictWarningVisible(false);
+              setPendingEventData(null);
+              setDetectedConflicts(null);
+            }}
           />
         )}
       </KeyboardAvoidingView>
