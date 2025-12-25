@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
   Animated,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
@@ -24,6 +25,8 @@ import InvoiceModal from "../modals/InvoiceModal";
 import InvoiceDetailsModal from "../modals/InvoiceDetailsModal";
 import TimeTrackerModal from "../modals/TimeTrackerModal";
 import EmailStatusBadge from "../billing/EmailStatusBadge";
+import { ExportButton, ExportFormat } from "../ExportButton";
+import { useExport } from "../../services/export";
 
 type TabType = "receipts" | "invoices";
 type CreateModalType = "receipt" | "invoice" | null;
@@ -316,7 +319,7 @@ function BillingBatchActionBar({
 }
 
 /**
- * Header with selection mode toggle
+ * Header with selection mode toggle and export
  */
 function BillingHeader({
   activeTab,
@@ -325,6 +328,8 @@ function BillingHeader({
   onExitSelectionMode,
   onOpenTimer,
   onCreateDocument,
+  onExport,
+  exportLoading,
 }: {
   activeTab: TabType;
   isSelectionMode: boolean;
@@ -332,6 +337,8 @@ function BillingHeader({
   onExitSelectionMode: () => void;
   onOpenTimer: () => void;
   onCreateDocument: () => void;
+  onExport: (format: ExportFormat) => Promise<void>;
+  exportLoading: boolean;
 }) {
   const { tokens } = useTheme();
 
@@ -346,6 +353,17 @@ function BillingHeader({
         </Text>
       </View>
       <View style={styles.headerActions}>
+        {/* Export button */}
+        {!isSelectionMode && (
+          <ExportButton
+            variant="icon"
+            formats={['csv']}
+            onExport={onExport}
+            loading={exportLoading}
+            showFormatSelector={false}
+            icon="download-outline"
+          />
+        )}
         {/* Selection mode toggle */}
         <TouchableOpacity
           style={[styles.iconButton, { backgroundColor: isSelectionMode ? tokens.accent : tokens.surface, borderColor: tokens.border }]}
@@ -403,6 +421,8 @@ function BillingScreenInner({
   onCreateReceipt,
   onCreateInvoice,
   onOpenTimer,
+  onExport,
+  exportLoading,
   fadeAnim,
 }: {
   activeTab: TabType;
@@ -426,6 +446,8 @@ function BillingScreenInner({
   onCreateReceipt: () => void;
   onCreateInvoice: () => void;
   onOpenTimer: () => void;
+  onExport: (format: ExportFormat) => Promise<void>;
+  exportLoading: boolean;
   fadeAnim: Animated.Value;
 }) {
   const { tokens } = useTheme();
@@ -464,6 +486,8 @@ function BillingScreenInner({
           onExitSelectionMode={exitSelectionMode}
           onOpenTimer={onOpenTimer}
           onCreateDocument={activeTab === "receipts" ? onCreateReceipt : onCreateInvoice}
+          onExport={onExport}
+          exportLoading={exportLoading}
         />
 
         {/* Tab Selector */}
@@ -667,6 +691,27 @@ export default function BillingScreen() {
   const [showCreateModal, setShowCreateModal] = useState<CreateModalType>(null);
   const [showTimeTracker, setShowTimeTracker] = useState(false);
 
+  // Export functionality
+  const { exporting, exportReceiptsCSV, exportInvoicesCSV } = useExport();
+
+  const handleExport = async (format: ExportFormat) => {
+    if (activeTab === "receipts") {
+      const dataToExport = filteredReceipts.length > 0 ? filteredReceipts : receipts;
+      if (dataToExport.length === 0) {
+        Alert.alert('No Data', 'No receipts to export.');
+        return;
+      }
+      await exportReceiptsCSV(dataToExport);
+    } else {
+      const dataToExport = filteredInvoices.length > 0 ? filteredInvoices : invoices;
+      if (dataToExport.length === 0) {
+        Alert.alert('No Data', 'No invoices to export.');
+        return;
+      }
+      await exportInvoicesCSV(dataToExport);
+    }
+  };
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -739,6 +784,8 @@ export default function BillingScreen() {
           onCreateReceipt={() => setShowCreateModal("receipt")}
           onCreateInvoice={() => setShowCreateModal("invoice")}
           onOpenTimer={() => setShowTimeTracker(true)}
+          onExport={handleExport}
+          exportLoading={exporting}
           fadeAnim={fadeAnim}
         />
       </SelectionProvider>

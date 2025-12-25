@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
 import { useApi } from "../../lib/hooks/useApi";
@@ -14,23 +14,39 @@ import ReceiptsPanel from "../ReceiptsPanel";
 import ServiceLinesPanel from "../ServiceLinesPanel";
 import ReceiptModal from "../billing/ReceiptModal";
 import TestimonialRequestModal from "../TestimonialRequestModal";
+import HouseholdModal from "../modals/HouseholdModal";
+import { useClientHousehold } from "../../hooks/useHouseholds";
+import {
+  getHouseholdTypeLabel,
+  getHouseholdTypeIcon,
+  getMemberCountText,
+} from "../../services/households";
 
 interface ClientDetailScreenProps {
   clientId: string;
   onBack: () => void;
+  onNavigateToClient?: (clientId: string) => void;
 }
 
-export default function ClientDetailScreen({ clientId, onBack }: ClientDetailScreenProps) {
+export default function ClientDetailScreen({ clientId, onBack, onNavigateToClient }: ClientDetailScreenProps) {
   const { tokens } = useTheme();
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showTestimonialModal, setShowTestimonialModal] = useState(false);
+  const [showHouseholdModal, setShowHouseholdModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Fetch client data
-  const { data: client, loading, error } = useApi(
+  const { data: client, loading, error, refetch: refetchClient } = useApi(
     () => clientsApi.getClient(clientId),
     [clientId]
   );
+
+  // Fetch client's household
+  const {
+    household: clientHousehold,
+    loading: loadingHousehold,
+    refetch: refetchHousehold,
+  } = useClientHousehold(clientId);
 
   // Quick action handlers
   const handleMessage = () => {
@@ -180,6 +196,115 @@ export default function ClientDetailScreen({ clientId, onBack }: ClientDetailScr
         </View>
       </NeomorphicCard>
 
+      {/* Household Section */}
+      <NeomorphicCard style={styles.card} contentStyle={styles.cardContent}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="people" size={20} color={tokens.accent} />
+            <Text style={[styles.sectionTitle, { color: tokens.textPrimary, marginBottom: 0 }]}>
+              Household
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.manageButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
+            onPress={() => setShowHouseholdModal(true)}
+          >
+            <Text style={[styles.manageButtonText, { color: tokens.accent }]}>
+              {clientHousehold ? 'Manage' : 'Add'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {loadingHousehold ? (
+          <View style={styles.householdLoading}>
+            <ActivityIndicator size="small" color={tokens.accent} />
+            <Text style={[styles.householdLoadingText, { color: tokens.textSecondary }]}>
+              Loading household...
+            </Text>
+          </View>
+        ) : clientHousehold ? (
+          <View style={styles.householdContent}>
+            {/* Household Info */}
+            <View style={[styles.householdCard, { backgroundColor: tokens.surface, borderColor: tokens.border }]}>
+              <View style={[styles.householdIconContainer, { backgroundColor: tokens.accent + '15' }]}>
+                <Ionicons
+                  name={getHouseholdTypeIcon(clientHousehold.accountType) as any}
+                  size={24}
+                  color={tokens.accent}
+                />
+              </View>
+              <View style={styles.householdInfo}>
+                <Text style={[styles.householdName, { color: tokens.textPrimary }]}>
+                  {clientHousehold.name}
+                </Text>
+                <Text style={[styles.householdMeta, { color: tokens.textSecondary }]}>
+                  {getHouseholdTypeLabel(clientHousehold.accountType)} - {getMemberCountText(clientHousehold.memberCount)}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={tokens.textSecondary} />
+            </View>
+
+            {/* Household Members */}
+            {clientHousehold.members && clientHousehold.members.length > 0 && (
+              <View style={styles.membersSection}>
+                <Text style={[styles.membersLabel, { color: tokens.textSecondary }]}>
+                  Household Members
+                </Text>
+                <View style={styles.membersList}>
+                  {clientHousehold.members.slice(0, 4).map((member) => (
+                    <TouchableOpacity
+                      key={member.id}
+                      style={[
+                        styles.memberChip,
+                        { backgroundColor: tokens.surface, borderColor: tokens.border },
+                        member.id === clientId && { borderColor: tokens.accent, backgroundColor: tokens.accent + '10' },
+                      ]}
+                      onPress={() => {
+                        if (member.id !== clientId && onNavigateToClient) {
+                          onNavigateToClient(member.id);
+                        }
+                      }}
+                      disabled={member.id === clientId}
+                    >
+                      <Text
+                        style={[
+                          styles.memberChipText,
+                          { color: member.id === clientId ? tokens.accent : tokens.textPrimary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {member.name}
+                        {member.id === clientId && ' (You)'}
+                      </Text>
+                      {member.isPrimaryContact && (
+                        <Ionicons name="star" size={12} color={tokens.accent} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                  {clientHousehold.members.length > 4 && (
+                    <View style={[styles.memberChip, { backgroundColor: tokens.surface, borderColor: tokens.border }]}>
+                      <Text style={[styles.memberChipText, { color: tokens.textSecondary }]}>
+                        +{clientHousehold.members.length - 4} more
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={styles.noHousehold}>
+            <Ionicons name="home-outline" size={32} color={tokens.textSecondary} />
+            <Text style={[styles.noHouseholdText, { color: tokens.textSecondary }]}>
+              Not part of a household
+            </Text>
+            <Text style={[styles.noHouseholdSubtext, { color: tokens.textSecondary }]}>
+              Add to a household to group related clients together
+            </Text>
+          </View>
+        )}
+      </NeomorphicCard>
+
       {/* Service Lines */}
       <NeomorphicCard style={styles.card} contentStyle={styles.cardContent}>
         <Text style={[styles.sectionTitle, { color: tokens.textPrimary }]}>Service Lines</Text>
@@ -240,6 +365,19 @@ export default function ClientDetailScreen({ clientId, onBack }: ClientDetailScr
           setShowTestimonialModal(false);
           setRefreshKey(prev => prev + 1); // Trigger refresh of TestimonialsPanel
         }}
+      />
+
+      {/* Household Modal */}
+      <HouseholdModal
+        visible={showHouseholdModal}
+        clientId={clientId}
+        clientName={client.name}
+        onClose={() => setShowHouseholdModal(false)}
+        onHouseholdUpdated={() => {
+          refetchHousehold();
+          refetchClient();
+        }}
+        onNavigateToClient={onNavigateToClient}
       />
     </ScrollView>
   );
@@ -356,6 +494,117 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: 16,
     fontWeight: "600",
+    fontFamily: "lores-9-wide",
+  },
+  // Household section styles
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  manageButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  manageButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    fontFamily: "lores-9-wide",
+  },
+  householdLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 20,
+  },
+  householdLoadingText: {
+    fontSize: 14,
+    fontFamily: "lores-9-wide",
+  },
+  householdContent: {
+    gap: 12,
+  },
+  householdCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  householdIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  householdInfo: {
+    flex: 1,
+  },
+  householdName: {
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: "Bytesized-Regular",
+  },
+  householdMeta: {
+    fontSize: 13,
+    marginTop: 2,
+    fontFamily: "lores-9-wide",
+  },
+  membersSection: {
+    marginTop: 4,
+  },
+  membersLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    marginBottom: 8,
+    fontFamily: "lores-9-wide",
+  },
+  membersList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  memberChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  memberChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+    fontFamily: "lores-9-wide",
+    maxWidth: 120,
+  },
+  noHousehold: {
+    alignItems: "center",
+    paddingVertical: 24,
+    gap: 8,
+  },
+  noHouseholdText: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginTop: 4,
+    fontFamily: "Bytesized-Regular",
+  },
+  noHouseholdSubtext: {
+    fontSize: 13,
+    textAlign: "center",
     fontFamily: "lores-9-wide",
   },
 });

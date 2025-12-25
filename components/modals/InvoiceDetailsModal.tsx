@@ -24,6 +24,7 @@ import {
 } from "../../types/billing";
 import { useInvoice, useInvoiceMutations } from "../../hooks/useInvoices";
 import EmailStatusBadge from "../billing/EmailStatusBadge";
+import { exportInvoiceToPDF, printInvoice } from "../../services/export";
 
 interface InvoiceDetailsModalProps {
   isOpen: boolean;
@@ -189,19 +190,49 @@ export default function InvoiceDetailsModal({
     );
   };
 
+  const [generatingPDF, setGeneratingPDF] = useState(false);
+
   const handleShareInvoice = async () => {
     if (!invoice) return;
 
     try {
-      const message = `Invoice ${invoice.invoiceNumber}\n\nClient: ${invoice.client.name}\nAmount Due: $${invoice.totalAmount.toFixed(2)}\nDue Date: ${formatDate(invoice.dueDate)}\nPayment Terms: ${getPaymentTermsLabel(invoice.paymentTerms)}`;
-
-      await Share.share({
-        message,
-        title: `Invoice ${invoice.invoiceNumber}`,
-      });
+      setGeneratingPDF(true);
+      // Generate and share PDF
+      await exportInvoiceToPDF(invoice);
     } catch (error) {
       console.error('[InvoiceDetailsModal] Error sharing invoice:', error);
       Alert.alert('Error', 'Failed to share invoice');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!invoice) return;
+
+    try {
+      setGeneratingPDF(true);
+      // Generate and share PDF (share sheet allows saving to Files)
+      await exportInvoiceToPDF(invoice);
+    } catch (error) {
+      console.error('[InvoiceDetailsModal] Error downloading PDF:', error);
+      Alert.alert('Error', 'Failed to download PDF');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!invoice) return;
+
+    try {
+      setGeneratingPDF(true);
+      await printInvoice(invoice);
+    } catch (error) {
+      console.error('[InvoiceDetailsModal] Error printing invoice:', error);
+      Alert.alert('Error', 'Failed to print invoice');
+    } finally {
+      setGeneratingPDF(false);
     }
   };
 
@@ -445,13 +476,20 @@ export default function InvoiceDetailsModal({
                 </TouchableOpacity>
               )}
 
-              {/* Share Button */}
+              {/* Share/Download PDF Button */}
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
-                onPress={handleShareInvoice}
+                onPress={handleDownloadPDF}
+                disabled={generatingPDF}
               >
-                <Ionicons name="share-outline" size={18} color={tokens.accent} />
-                <Text style={[styles.actionButtonText, { color: tokens.accent }]}>Share</Text>
+                {generatingPDF ? (
+                  <ActivityIndicator size="small" color={tokens.accent} />
+                ) : (
+                  <>
+                    <Ionicons name="download-outline" size={18} color={tokens.accent} />
+                    <Text style={[styles.actionButtonText, { color: tokens.accent }]}>Download PDF</Text>
+                  </>
+                )}
               </TouchableOpacity>
 
               {/* Duplicate Button */}

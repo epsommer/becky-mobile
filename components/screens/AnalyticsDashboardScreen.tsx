@@ -11,6 +11,7 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, ThemeTokens } from '../../theme/ThemeContext';
@@ -24,6 +25,8 @@ import {
   ClientGrowthChart,
   TopClientsCard,
 } from '../analytics';
+import { ExportButton, ExportFormat } from '../ExportButton';
+import { useExport, AnalyticsExportData } from '../../services/export';
 
 export default function AnalyticsDashboardScreen() {
   const { tokens } = useTheme();
@@ -40,12 +43,50 @@ export default function AnalyticsDashboardScreen() {
   } = useAnalytics('this_month');
 
   const [refreshing, setRefreshing] = React.useState(false);
+  const { exporting, exportAnalyticsCSV } = useExport();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
   }, [refetch]);
+
+  const handleExport = async (format: ExportFormat) => {
+    if (!data) {
+      Alert.alert('No Data', 'No analytics data to export.');
+      return;
+    }
+
+    const exportData: AnalyticsExportData = {
+      dateRange: {
+        start: dateRange.startDate || '',
+        end: dateRange.endDate || '',
+      },
+      revenue: {
+        total: data.revenue?.totalRevenue || 0,
+        byServiceLine: data.revenue?.revenueByServiceLine?.map(item => ({
+          name: item.serviceLineName,
+          amount: item.amount,
+          percentage: item.percentage,
+        })) || [],
+      },
+      clients: {
+        total: data.clients?.totalClients || 0,
+        active: data.clients?.activeClients || 0,
+        prospect: data.clients?.prospectClients || 0,
+        completed: data.clients?.completedClients || 0,
+        inactive: data.clients?.inactiveClients || 0,
+      },
+      billing: {
+        pendingInvoices: data.billing?.pendingInvoices || 0,
+        pendingAmount: data.billing?.totalOutstanding || 0,
+        overdueCount: data.billing?.overdueCount || 0,
+        overdueAmount: data.billing?.overdueAmount || 0,
+      },
+    };
+
+    await exportAnalyticsCSV(exportData);
+  };
 
   const formatCurrency = (value: number): string => {
     if (value >= 1000000) {
@@ -91,11 +132,22 @@ export default function AnalyticsDashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>Analytics</Text>
-          <DateRangeSelector
-            currentRange={dateRange}
-            onRangeChange={setDateRangeType}
-            onCustomRangeSelect={setCustomDateRange}
-          />
+          <View style={styles.headerActions}>
+            <ExportButton
+              variant="icon"
+              formats={['csv']}
+              onExport={handleExport}
+              loading={exporting}
+              showFormatSelector={false}
+              icon="download-outline"
+              size="small"
+            />
+            <DateRangeSelector
+              currentRange={dateRange}
+              onRangeChange={setDateRangeType}
+              onCustomRangeSelect={setCustomDateRange}
+            />
+          </View>
         </View>
         {data?.lastUpdated && (
           <Text style={styles.lastUpdated}>
@@ -298,6 +350,11 @@ const createStyles = (tokens: ThemeTokens) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
+    },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
     },
     headerTitle: {
       fontSize: 24,

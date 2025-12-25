@@ -15,8 +15,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 import { useCalendar } from "../context/CalendarContext";
+import { useNotificationContext } from "../context/NotificationContext";
+import { ReminderTiming } from "../hooks/useNotifications";
 
-type TabType = "general" | "integrations";
+type TabType = "general" | "notifications" | "integrations";
 
 interface Preference {
   label: string;
@@ -27,7 +29,6 @@ interface Preference {
 const generalPreferences: Preference[] = [
   { label: "Theme sync", description: "Keep neomorphic/tactical themes aligned", enabled: true },
   { label: "Compact mode", description: "Reduce spacing for more rows", enabled: false },
-  { label: "Notifications", description: "Push updates for receipts & testimonials", enabled: true },
 ];
 
 interface PreferencesPanelProps {
@@ -51,6 +52,32 @@ export default function PreferencesPanel({ onClose }: PreferencesPanelProps) {
     fetchCalendarIntegrations,
     disconnectIntegration,
   } = useCalendar();
+
+  // Notification context - wrapped in try/catch to handle case where context isn't available
+  let notificationContext: ReturnType<typeof useNotificationContext> | null = null;
+  try {
+    notificationContext = useNotificationContext();
+  } catch (e) {
+    // Context not available, will show fallback UI
+  }
+
+  const {
+    permissionGranted = false,
+    permissionStatus = 'undetermined',
+    preferences: notifPreferences,
+    loading: notifLoading = false,
+    requestPermission,
+    updatePreferences: updateNotifPreferences,
+    sendTestNotification,
+  } = notificationContext || {
+    permissionGranted: false,
+    permissionStatus: 'undetermined' as const,
+    preferences: undefined,
+    loading: false,
+    requestPermission: async () => false,
+    updatePreferences: async () => {},
+    sendTestNotification: async () => {},
+  };
 
   const [disconnecting, setDisconnecting] = useState(false);
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
@@ -224,11 +251,24 @@ export default function PreferencesPanel({ onClose }: PreferencesPanelProps) {
         >
           <Ionicons
             name="settings-outline"
-            size={18}
+            size={16}
             color={activeTab === "general" ? tokens.accent : tokens.textSecondary}
           />
           <Text style={[styles.tabText, activeTab === "general" && styles.tabTextActive]}>
             General
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "notifications" && styles.tabActive]}
+          onPress={() => setActiveTab("notifications")}
+        >
+          <Ionicons
+            name="notifications-outline"
+            size={16}
+            color={activeTab === "notifications" ? tokens.accent : tokens.textSecondary}
+          />
+          <Text style={[styles.tabText, activeTab === "notifications" && styles.tabTextActive]}>
+            Alerts
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -237,11 +277,11 @@ export default function PreferencesPanel({ onClose }: PreferencesPanelProps) {
         >
           <Ionicons
             name="calendar-outline"
-            size={18}
+            size={16}
             color={activeTab === "integrations" ? tokens.accent : tokens.textSecondary}
           />
           <Text style={[styles.tabText, activeTab === "integrations" && styles.tabTextActive]}>
-            Integrations
+            Sync
           </Text>
         </TouchableOpacity>
       </View>
@@ -262,6 +302,225 @@ export default function PreferencesPanel({ onClose }: PreferencesPanelProps) {
                 />
               </View>
             ))}
+          </View>
+        )}
+
+        {activeTab === "notifications" && (
+          <View style={{ paddingBottom: 20 }}>
+            {/* Permission Status */}
+            {!permissionGranted && (
+              <View style={[styles.integrationCard, { marginBottom: 16, borderColor: tokens.accent }]}>
+                <View style={styles.integrationHeader}>
+                  <View style={styles.integrationIconRow}>
+                    <View style={[styles.integrationIcon, { backgroundColor: tokens.accent }]}>
+                      <Ionicons name="notifications" size={20} color="#fff" />
+                    </View>
+                    <View style={styles.integrationInfo}>
+                      <Text style={styles.integrationName}>Enable Notifications</Text>
+                      <Text style={styles.integrationDescription}>
+                        {permissionStatus === 'denied'
+                          ? 'Notifications are disabled. Enable them in Settings.'
+                          : 'Get reminders for events and updates'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[styles.action, { marginTop: 12, backgroundColor: tokens.accent }]}
+                  onPress={async () => {
+                    const granted = await requestPermission();
+                    if (granted) {
+                      Alert.alert('Success', 'Push notifications enabled!');
+                    } else if (permissionStatus === 'denied') {
+                      Alert.alert(
+                        'Enable Notifications',
+                        'Please enable notifications in your device settings.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+                        ]
+                      );
+                    }
+                  }}
+                  disabled={notifLoading}
+                >
+                  {notifLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.actionText}>
+                      {permissionStatus === 'denied' ? 'Open Settings' : 'Enable Notifications'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Master toggle */}
+            <Text style={styles.sectionTitle}>Notification Settings</Text>
+            <Text style={styles.sectionDescription}>
+              Choose which notifications you want to receive
+            </Text>
+
+            <View style={styles.row}>
+              <View style={styles.textGroup}>
+                <Text style={styles.label}>All Notifications</Text>
+                <Text style={styles.description}>Master toggle for all notifications</Text>
+              </View>
+              <Switch
+                value={notifPreferences?.enabled ?? true}
+                onValueChange={(value) => updateNotifPreferences({ enabled: value })}
+                trackColor={{ false: tokens.border, true: tokens.accent }}
+                thumbColor={tokens.textPrimary}
+                disabled={!permissionGranted}
+              />
+            </View>
+
+            {/* Notification Types */}
+            <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Notification Types</Text>
+
+            <View style={styles.row}>
+              <View style={styles.textGroup}>
+                <Text style={styles.label}>Event Reminders</Text>
+                <Text style={styles.description}>Reminders before scheduled events</Text>
+              </View>
+              <Switch
+                value={notifPreferences?.eventReminders ?? true}
+                onValueChange={(value) => updateNotifPreferences({ eventReminders: value })}
+                trackColor={{ false: tokens.border, true: tokens.accent }}
+                thumbColor={tokens.textPrimary}
+                disabled={!permissionGranted || !notifPreferences?.enabled}
+              />
+            </View>
+
+            {/* Reminder Timing */}
+            {notifPreferences?.eventReminders && (
+              <View style={{ marginBottom: 16, marginLeft: 12 }}>
+                <Text style={[styles.label, { marginBottom: 8 }]}>Reminder Timing</Text>
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  {([15, 60, 1440] as ReminderTiming[]).map((minutes) => {
+                    const isSelected = notifPreferences.eventReminderTiming?.includes(minutes);
+                    const label = minutes === 15 ? '15 min' : minutes === 60 ? '1 hour' : '1 day';
+                    return (
+                      <TouchableOpacity
+                        key={minutes}
+                        style={[
+                          styles.timingChip,
+                          isSelected && { backgroundColor: tokens.accent, borderColor: tokens.accent },
+                        ]}
+                        onPress={() => {
+                          const current = notifPreferences.eventReminderTiming || [];
+                          const updated = isSelected
+                            ? current.filter((m) => m !== minutes)
+                            : [...current, minutes];
+                          updateNotifPreferences({ eventReminderTiming: updated as ReminderTiming[] });
+                        }}
+                        disabled={!permissionGranted || !notifPreferences?.enabled}
+                      >
+                        <Text style={[
+                          styles.timingChipText,
+                          isSelected && { color: '#fff' },
+                        ]}>
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            <View style={styles.row}>
+              <View style={styles.textGroup}>
+                <Text style={styles.label}>New Client Signup</Text>
+                <Text style={styles.description}>When a new client is added</Text>
+              </View>
+              <Switch
+                value={notifPreferences?.newClientSignup ?? true}
+                onValueChange={(value) => updateNotifPreferences({ newClientSignup: value })}
+                trackColor={{ false: tokens.border, true: tokens.accent }}
+                thumbColor={tokens.textPrimary}
+                disabled={!permissionGranted || !notifPreferences?.enabled}
+              />
+            </View>
+
+            <View style={styles.row}>
+              <View style={styles.textGroup}>
+                <Text style={styles.label}>Receipt Paid</Text>
+                <Text style={styles.description}>When a receipt is marked as paid</Text>
+              </View>
+              <Switch
+                value={notifPreferences?.receiptPaid ?? true}
+                onValueChange={(value) => updateNotifPreferences({ receiptPaid: value })}
+                trackColor={{ false: tokens.border, true: tokens.accent }}
+                thumbColor={tokens.textPrimary}
+                disabled={!permissionGranted || !notifPreferences?.enabled}
+              />
+            </View>
+
+            <View style={styles.row}>
+              <View style={styles.textGroup}>
+                <Text style={styles.label}>Testimonial Received</Text>
+                <Text style={styles.description}>When a client submits a testimonial</Text>
+              </View>
+              <Switch
+                value={notifPreferences?.testimonialReceived ?? true}
+                onValueChange={(value) => updateNotifPreferences({ testimonialReceived: value })}
+                trackColor={{ false: tokens.border, true: tokens.accent }}
+                thumbColor={tokens.textPrimary}
+                disabled={!permissionGranted || !notifPreferences?.enabled}
+              />
+            </View>
+
+            <View style={styles.row}>
+              <View style={styles.textGroup}>
+                <Text style={styles.label}>Follow-up Reminders</Text>
+                <Text style={styles.description}>Reminders for scheduled follow-ups</Text>
+              </View>
+              <Switch
+                value={notifPreferences?.followUpReminders ?? true}
+                onValueChange={(value) => updateNotifPreferences({ followUpReminders: value })}
+                trackColor={{ false: tokens.border, true: tokens.accent }}
+                thumbColor={tokens.textPrimary}
+                disabled={!permissionGranted || !notifPreferences?.enabled}
+              />
+            </View>
+
+            {/* Quiet Hours */}
+            <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Quiet Hours</Text>
+
+            <View style={styles.row}>
+              <View style={styles.textGroup}>
+                <Text style={styles.label}>Enable Quiet Hours</Text>
+                <Text style={styles.description}>
+                  {notifPreferences?.quietHoursEnabled
+                    ? `${notifPreferences.quietHoursStart} - ${notifPreferences.quietHoursEnd}`
+                    : 'No notifications during set times'}
+                </Text>
+              </View>
+              <Switch
+                value={notifPreferences?.quietHoursEnabled ?? false}
+                onValueChange={(value) => updateNotifPreferences({ quietHoursEnabled: value })}
+                trackColor={{ false: tokens.border, true: tokens.accent }}
+                thumbColor={tokens.textPrimary}
+                disabled={!permissionGranted || !notifPreferences?.enabled}
+              />
+            </View>
+
+            {/* Test Notification */}
+            {permissionGranted && (
+              <TouchableOpacity
+                style={[styles.testButton, { borderColor: tokens.accent }]}
+                onPress={async () => {
+                  await sendTestNotification();
+                  Alert.alert('Test Sent', 'Check your notifications!');
+                }}
+              >
+                <Ionicons name="paper-plane-outline" size={16} color={tokens.accent} />
+                <Text style={[styles.testButtonText, { color: tokens.accent }]}>
+                  Send Test Notification
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -604,5 +863,33 @@ const createStyles = (tokens: ThemeTokens) =>
     actionText: {
       color: tokens.background,
       fontWeight: "700",
+    },
+    // Notification preferences styles
+    timingChip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: tokens.border,
+      backgroundColor: tokens.background,
+    },
+    timingChipText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: tokens.textSecondary,
+    },
+    testButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      paddingVertical: 12,
+      borderRadius: 16,
+      borderWidth: 1,
+      marginTop: 16,
+    },
+    testButtonText: {
+      fontSize: 14,
+      fontWeight: "600",
     },
   });

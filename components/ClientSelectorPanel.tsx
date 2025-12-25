@@ -15,6 +15,7 @@ import { clientsApi } from "../lib/api/endpoints";
 import ReceiptModal from "./billing/ReceiptModal";
 import TimeTrackerModal from "./modals/TimeTrackerModal";
 import { showDeleteConfirmation } from "./modals/DeleteConfirmationModal";
+import HouseholdBadge from "./HouseholdBadge";
 
 interface SelectorClient {
   id: string;
@@ -440,6 +441,7 @@ export default function ClientSelectorPanel({
               <View style={styles.clientInfo}>
                 <View style={styles.clientNameRow}>
                   <Text style={styles.clientName}>{client.name}</Text>
+                  <HouseholdBadge clientId={client.id} compact />
                   <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={tokens.textSecondary} />
                 </View>
                 {client.status && (

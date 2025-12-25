@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, Modal, Pressable, ActivityIndicator, Animated } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
@@ -22,12 +22,16 @@ import GoalsScreen from "./components/screens/GoalsScreen";
 import ServiceLinesScreen from "./components/screens/ServiceLinesScreen";
 import ContactsListScreen from "./components/screens/ContactsListScreen";
 import AnalyticsDashboardScreen from "./components/screens/AnalyticsDashboardScreen";
+import SettingsScreen from "./components/screens/SettingsScreen";
+import FollowUpDashboardScreen from "./components/screens/FollowUpDashboardScreen";
 import { useFonts } from "expo-font";
 import { Ionicons } from "@expo/vector-icons";
 import NeomorphicCard from "./components/NeomorphicCard";
 import { ThemeProvider, ThemeTokens, useTheme } from "./theme/ThemeContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { CalendarProvider } from "./context/CalendarContext";
+import { NotificationProvider } from "./context/NotificationContext";
+import { NotificationNavigationAction } from "./hooks/useNotifications";
 import LoginScreen from "./screens/LoginScreen";
 import * as NavigationBar from "expo-navigation-bar";
 
@@ -43,7 +47,9 @@ type PageKey =
   | "Billing"
   | "Time Manager"
   | "Goals"
-  | "Service Lines";
+  | "Service Lines"
+  | "Follow-ups"
+  | "Settings";
 
 const navigationLinks: PageKey[] = [
   "Dashboard",
@@ -164,7 +170,9 @@ function AuthGate() {
   console.log('[AuthGate] Authenticated, showing ThemedApp');
   return (
     <CalendarProvider>
-      <ThemedApp />
+      <NotificationProvider>
+        <ThemedApp />
+      </NotificationProvider>
     </CalendarProvider>
   );
 }
@@ -362,6 +370,18 @@ function ThemedApp() {
         return <GoalsScreen />;
       case "Service Lines":
         return <ServiceLinesScreen />;
+      case "Follow-ups":
+        return (
+          <FollowUpDashboardScreen
+            onViewClient={handleViewClientDetail}
+          />
+        );
+      case "Settings":
+        return (
+          <SettingsScreen
+            onBack={() => handlePageSelect("Dashboard")}
+          />
+        );
       default:
         return (
           <DashboardScreen
@@ -421,11 +441,11 @@ function ThemedApp() {
           <UserAvatarDropdownPanel
             onAccountSettings={() => {
               setAccountDropdownVisible(false);
-              setSettingsVisible(true);
+              handlePageSelect("Settings");
             }}
             onPreferences={() => {
               setAccountDropdownVisible(false);
-              setPreferencesVisible(true);
+              handlePageSelect("Settings");
             }}
             onActivityLog={() => {
               setAccountDropdownVisible(false);

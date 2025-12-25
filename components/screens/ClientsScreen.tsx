@@ -1,11 +1,15 @@
 "use client";
 
 import React from "react";
-import { ScrollView, StyleSheet, Text, View, TextInput, TouchableOpacity } from "react-native";
+import { ScrollView, StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
 import ClientSelectorPanel from "../ClientSelectorPanel";
 import ContactImportPanel from "../ContactImportPanel";
+import { ExportButton, ExportFormat } from "../ExportButton";
+import { useExport, ClientExportData } from "../../services/export";
+import { useApi } from "../../lib/hooks/useApi";
+import { clientsApi } from "../../lib/api/endpoints";
 
 interface ClientsScreenProps {
   onViewClientDetail?: (clientId: string) => void;
@@ -18,12 +22,71 @@ export default function ClientsScreen({ onViewClientDetail, onViewContacts }: Cl
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [serviceFilter, setServiceFilter] = React.useState<string>("all");
 
+  // Fetch clients for export
+  const { data: clients } = useApi(() => clientsApi.getClients({ limit: 1000 }), []);
+  const { exporting, exportClientsCSV } = useExport();
+
+  // Handle export
+  const handleExport = async (format: ExportFormat) => {
+    if (!clients || clients.length === 0) {
+      Alert.alert('No Data', 'No clients to export.');
+      return;
+    }
+
+    // Apply filters to export data
+    let filteredClients = [...clients];
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filteredClients = filteredClients.filter(c =>
+        c.name?.toLowerCase().includes(query) ||
+        c.email?.toLowerCase().includes(query)
+      );
+    }
+
+    if (statusFilter !== 'all') {
+      filteredClients = filteredClients.filter(c => c.status?.toLowerCase() === statusFilter);
+    }
+
+    if (filteredClients.length === 0) {
+      Alert.alert('No Data', 'No clients match the current filters.');
+      return;
+    }
+
+    // Map to export format
+    const exportData: ClientExportData[] = filteredClients.map(client => ({
+      id: client.id,
+      name: client.name || '',
+      email: client.email,
+      phone: client.phone,
+      status: client.status || 'unknown',
+      serviceLine: client.serviceId || undefined,
+      company: client.company,
+      address: client.address ?
+        `${client.address.street || ''} ${client.address.city || ''} ${client.address.state || ''} ${client.address.zip || ''}`.trim() :
+        undefined,
+      createdAt: client.createdAt ? new Date(client.createdAt) : undefined,
+    }));
+
+    await exportClientsCSV(exportData);
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.headerSection}>
-        <Text style={[styles.headerTitle, { color: tokens.textPrimary }]}>
-          Client Management
-        </Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.headerTitle, { color: tokens.textPrimary }]}>
+            Client Management
+          </Text>
+          <ExportButton
+            variant="icon"
+            formats={['csv']}
+            onExport={handleExport}
+            loading={exporting}
+            showFormatSelector={false}
+            icon="download-outline"
+          />
+        </View>
       </View>
 
       {/* Contact Import Panel */}
@@ -125,6 +188,11 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     marginBottom: 20,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 28,

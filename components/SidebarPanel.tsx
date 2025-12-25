@@ -10,6 +10,7 @@ const navigation = [
   "Analytics",
   "Clients",
   "Conversations",
+  "Follow-ups",
   "Testimonials",
   "Billing",
   "Time Manager",

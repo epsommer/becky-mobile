@@ -21,7 +21,7 @@ import { useReceipt } from "../../hooks/useReceipts";
 import ReceiptSummary from "./ReceiptSummary";
 import EmailStatusBadge from "./EmailStatusBadge";
 import * as billingApi from "../../api/billing";
-import { generateReceiptHTML, generateReceiptFilename } from "../../utils/pdfGenerator";
+import { exportReceiptToPDF, printReceipt } from "../../services/export";
 
 interface ReceiptDetailsModalProps {
   isOpen: boolean;
@@ -90,17 +90,8 @@ export default function ReceiptDetailsModal({
 
     try {
       setGeneratingPDF(true);
-      const html = generateReceiptHTML(receipt);
-      const filename = generateReceiptFilename(receipt);
-
-      // For React Native, we'll share the HTML content
-      // In a production app, you'd use react-native-html-to-pdf to convert to PDF first
-      const message = `Receipt ${receipt.receiptNumber}\n\nClient: ${receipt.client.name}\nAmount: $${receipt.totalAmount.toFixed(2)}\nDate: ${new Date(receipt.serviceDate).toLocaleDateString()}`;
-
-      await Share.share({
-        message,
-        title: `Receipt ${receipt.receiptNumber}`,
-      });
+      // Generate and share PDF
+      await exportReceiptToPDF(receipt);
     } catch (error) {
       console.error('[ReceiptDetailsModal] Error sharing receipt:', error);
       Alert.alert('Error', 'Failed to share receipt');
@@ -114,33 +105,25 @@ export default function ReceiptDetailsModal({
 
     try {
       setGeneratingPDF(true);
-      const html = generateReceiptHTML(receipt);
-      const filename = generateReceiptFilename(receipt);
-
-      // For React Native, we would use react-native-html-to-pdf or expo-print
-      // For now, we'll show an alert with options
-      Alert.alert(
-        'Download Receipt',
-        'PDF generation requires additional setup. Would you like to:',
-        [
-          {
-            text: 'Share Receipt',
-            onPress: handleShareReceipt,
-          },
-          {
-            text: 'Email Receipt',
-            onPress: receipt.client.email ? handleSendEmail : undefined,
-            style: receipt.client.email ? 'default' : 'cancel',
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-        ]
-      );
+      // Generate and share PDF (share sheet allows saving to Files)
+      await exportReceiptToPDF(receipt);
     } catch (error) {
       console.error('[ReceiptDetailsModal] Error downloading PDF:', error);
       Alert.alert('Error', 'Failed to download PDF');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!receipt) return;
+
+    try {
+      setGeneratingPDF(true);
+      await printReceipt(receipt);
+    } catch (error) {
+      console.error('[ReceiptDetailsModal] Error printing receipt:', error);
+      Alert.alert('Error', 'Failed to print receipt');
     } finally {
       setGeneratingPDF(false);
     }
