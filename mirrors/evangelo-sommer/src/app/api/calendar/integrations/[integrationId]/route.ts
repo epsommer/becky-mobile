@@ -2,7 +2,45 @@
 // SECURE: Returns integration info WITHOUT exposing OAuth tokens
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import * as jwt from 'jsonwebtoken';
 import { getPrismaClient } from '@/lib/prisma';
+
+/**
+ * Get authenticated user's email from either NextAuth session or mobile Bearer token
+ */
+async function getAuthenticatedUser(request: NextRequest): Promise<{ email: string; role?: string } | null> {
+  // Try NextAuth session first (web app)
+  const nextAuthToken = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+
+  if (nextAuthToken?.email) {
+    return { email: nextAuthToken.email as string, role: nextAuthToken.role as string | undefined };
+  }
+
+  // Try mobile Bearer token
+  const authHeader = request.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      const secret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
+      if (!secret) {
+        console.error('[calendar/integrations] No JWT secret configured');
+        return null;
+      }
+      const decoded = jwt.verify(token, secret) as { email?: string; role?: string };
+      if (decoded.email) {
+        return { email: decoded.email, role: decoded.role };
+      }
+    } catch (err) {
+      console.error('[calendar/integrations] Invalid mobile JWT:', err);
+      return null;
+    }
+  }
+
+  return null;
+}
 
 export async function GET(
   request: NextRequest,
@@ -98,13 +136,10 @@ export async function DELETE(
       );
     }
 
-    // Get authenticated user
-    const token = await getToken({
-      req: request,
-      secret: process.env.NEXTAUTH_SECRET,
-    });
+    // Get authenticated user from either NextAuth or mobile JWT
+    const authUser = await getAuthenticatedUser(request);
 
-    if (!token?.email) {
+    if (!authUser) {
       return NextResponse.json(
         { success: false, error: 'Not authenticated' },
         { status: 401 }
@@ -135,7 +170,7 @@ export async function DELETE(
     }
 
     // Authorization check: ensure user owns this integration
-    if (integration.participant.email !== token.email && token.role !== 'SUPER_ADMIN') {
+    if (integration.participant.email !== authUser.email && authUser.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 403 }

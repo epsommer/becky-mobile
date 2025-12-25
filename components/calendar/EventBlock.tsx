@@ -19,6 +19,7 @@ const PIXELS_PER_HOUR = 60;
 const MIN_EVENT_HEIGHT = 30; // 30 min minimum
 const SNAP_INTERVAL = 15; // Snap to 15-minute intervals
 const RESIZE_HANDLE_HEIGHT = 16; // Taller hit area for resize handles
+const CORNER_HANDLE_SIZE = 44; // Touch target size for corner handles (44x44 for accessibility)
 
 // Helper to convert pixels to time for logging
 const pixelsToMinutes = (pixels: number) => Math.round((pixels / PIXELS_PER_HOUR) * 60);
@@ -30,9 +31,9 @@ interface EventBlockProps {
   onDragStart?: (event: Event) => void;
   onDragMove?: (dy: number) => void;
   onDragEnd?: (dy: number) => void;
-  onResizeStart?: (event: Event, handle: 'top' | 'bottom') => void;
-  onResizeMove?: (dy: number, handle: 'top' | 'bottom') => void;
-  onResizeEnd?: (dy: number, handle: 'top' | 'bottom') => void;
+  onResizeStart?: (event: Event, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => void;
+  onResizeMove?: (dy: number, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => void;
+  onResizeEnd?: (dy: number, handle: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => void;
   onPress?: (event: Event) => void;
   isDragging?: boolean;
   isResizing?: boolean;
@@ -268,6 +269,182 @@ export default function EventBlock({
     }), [event, topOffset, height, onResizeStart, onResizeMove, onResizeEnd]
   );
 
+  // Top-left corner resize handle pan responder
+  const topLeftCornerPanResponder = useMemo(() =>
+    PanResponder.create({
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        isResizingRef.current = true;
+        lastResizeDy.current = 0;
+        peakResizeDy.current = 0;
+        console.log('[EventBlock] ========== TOP-LEFT CORNER RESIZE START ==========');
+        onResizeStart?.(event, 'top-left');
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const snappedDy = Math.round(gestureState.dy / (PIXELS_PER_HOUR / 4)) * (PIXELS_PER_HOUR / 4);
+        const maxDy = height - MIN_EVENT_HEIGHT;
+        const clampedDy = Math.min(snappedDy, maxDy);
+        lastResizeDy.current = clampedDy;
+        if (Math.abs(clampedDy) > Math.abs(peakResizeDy.current)) {
+          peakResizeDy.current = clampedDy;
+        }
+        onResizeMove?.(clampedDy, 'top-left');
+      },
+      onPanResponderRelease: () => {
+        let finalDy = lastResizeDy.current;
+        if (finalDy === 0 && peakResizeDy.current !== 0) {
+          finalDy = peakResizeDy.current;
+        }
+        console.log('[EventBlock] TOP-LEFT corner resize released, dy:', finalDy);
+        isResizingRef.current = false;
+        onResizeEnd?.(finalDy, 'top-left');
+      },
+      onPanResponderTerminate: () => {
+        let finalDy = lastResizeDy.current;
+        if (finalDy === 0 && peakResizeDy.current !== 0) {
+          finalDy = peakResizeDy.current;
+        }
+        isResizingRef.current = false;
+        onResizeEnd?.(finalDy, 'top-left');
+      },
+    }), [event, topOffset, height, onResizeStart, onResizeMove, onResizeEnd]
+  );
+
+  // Top-right corner resize handle pan responder
+  const topRightCornerPanResponder = useMemo(() =>
+    PanResponder.create({
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        isResizingRef.current = true;
+        lastResizeDy.current = 0;
+        peakResizeDy.current = 0;
+        console.log('[EventBlock] ========== TOP-RIGHT CORNER RESIZE START ==========');
+        onResizeStart?.(event, 'top-right');
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const snappedDy = Math.round(gestureState.dy / (PIXELS_PER_HOUR / 4)) * (PIXELS_PER_HOUR / 4);
+        const maxDy = height - MIN_EVENT_HEIGHT;
+        const clampedDy = Math.min(snappedDy, maxDy);
+        lastResizeDy.current = clampedDy;
+        if (Math.abs(clampedDy) > Math.abs(peakResizeDy.current)) {
+          peakResizeDy.current = clampedDy;
+        }
+        onResizeMove?.(clampedDy, 'top-right');
+      },
+      onPanResponderRelease: () => {
+        let finalDy = lastResizeDy.current;
+        if (finalDy === 0 && peakResizeDy.current !== 0) {
+          finalDy = peakResizeDy.current;
+        }
+        console.log('[EventBlock] TOP-RIGHT corner resize released, dy:', finalDy);
+        isResizingRef.current = false;
+        onResizeEnd?.(finalDy, 'top-right');
+      },
+      onPanResponderTerminate: () => {
+        let finalDy = lastResizeDy.current;
+        if (finalDy === 0 && peakResizeDy.current !== 0) {
+          finalDy = peakResizeDy.current;
+        }
+        isResizingRef.current = false;
+        onResizeEnd?.(finalDy, 'top-right');
+      },
+    }), [event, topOffset, height, onResizeStart, onResizeMove, onResizeEnd]
+  );
+
+  // Bottom-left corner resize handle pan responder
+  const bottomLeftCornerPanResponder = useMemo(() =>
+    PanResponder.create({
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        isResizingRef.current = true;
+        lastResizeDy.current = 0;
+        peakResizeDy.current = 0;
+        console.log('[EventBlock] ========== BOTTOM-LEFT CORNER RESIZE START ==========');
+        onResizeStart?.(event, 'bottom-left');
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const snappedDy = Math.round(gestureState.dy / (PIXELS_PER_HOUR / 4)) * (PIXELS_PER_HOUR / 4);
+        const minDy = -(height - MIN_EVENT_HEIGHT);
+        const clampedDy = Math.max(snappedDy, minDy);
+        lastResizeDy.current = clampedDy;
+        if (Math.abs(clampedDy) > Math.abs(peakResizeDy.current)) {
+          peakResizeDy.current = clampedDy;
+        }
+        onResizeMove?.(clampedDy, 'bottom-left');
+      },
+      onPanResponderRelease: () => {
+        let finalDy = lastResizeDy.current;
+        if (finalDy === 0 && peakResizeDy.current !== 0) {
+          finalDy = peakResizeDy.current;
+        }
+        console.log('[EventBlock] BOTTOM-LEFT corner resize released, dy:', finalDy);
+        isResizingRef.current = false;
+        onResizeEnd?.(finalDy, 'bottom-left');
+      },
+      onPanResponderTerminate: () => {
+        let finalDy = lastResizeDy.current;
+        if (finalDy === 0 && peakResizeDy.current !== 0) {
+          finalDy = peakResizeDy.current;
+        }
+        isResizingRef.current = false;
+        onResizeEnd?.(finalDy, 'bottom-left');
+      },
+    }), [event, topOffset, height, onResizeStart, onResizeMove, onResizeEnd]
+  );
+
+  // Bottom-right corner resize handle pan responder
+  const bottomRightCornerPanResponder = useMemo(() =>
+    PanResponder.create({
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        isResizingRef.current = true;
+        lastResizeDy.current = 0;
+        peakResizeDy.current = 0;
+        console.log('[EventBlock] ========== BOTTOM-RIGHT CORNER RESIZE START ==========');
+        onResizeStart?.(event, 'bottom-right');
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const snappedDy = Math.round(gestureState.dy / (PIXELS_PER_HOUR / 4)) * (PIXELS_PER_HOUR / 4);
+        const minDy = -(height - MIN_EVENT_HEIGHT);
+        const clampedDy = Math.max(snappedDy, minDy);
+        lastResizeDy.current = clampedDy;
+        if (Math.abs(clampedDy) > Math.abs(peakResizeDy.current)) {
+          peakResizeDy.current = clampedDy;
+        }
+        onResizeMove?.(clampedDy, 'bottom-right');
+      },
+      onPanResponderRelease: () => {
+        let finalDy = lastResizeDy.current;
+        if (finalDy === 0 && peakResizeDy.current !== 0) {
+          finalDy = peakResizeDy.current;
+        }
+        console.log('[EventBlock] BOTTOM-RIGHT corner resize released, dy:', finalDy);
+        isResizingRef.current = false;
+        onResizeEnd?.(finalDy, 'bottom-right');
+      },
+      onPanResponderTerminate: () => {
+        let finalDy = lastResizeDy.current;
+        if (finalDy === 0 && peakResizeDy.current !== 0) {
+          finalDy = peakResizeDy.current;
+        }
+        isResizingRef.current = false;
+        onResizeEnd?.(finalDy, 'bottom-right');
+      },
+    }), [event, topOffset, height, onResizeStart, onResizeMove, onResizeEnd]
+  );
+
   // Get color based on service/status
   const getEventColor = () => {
     if (event.service) {
@@ -350,6 +527,39 @@ export default function EventBlock({
         {...bottomResizePanResponder.panHandlers}
       >
         <View style={[styles.resizeIndicator, { backgroundColor: eventColor }]} />
+      </View>
+
+      {/* Corner resize handles */}
+      {/* Top-left corner */}
+      <View
+        style={[styles.cornerHandle, styles.cornerTopLeft]}
+        {...topLeftCornerPanResponder.panHandlers}
+      >
+        <View style={[styles.cornerDot, { backgroundColor: eventColor }]} />
+      </View>
+
+      {/* Top-right corner */}
+      <View
+        style={[styles.cornerHandle, styles.cornerTopRight]}
+        {...topRightCornerPanResponder.panHandlers}
+      >
+        <View style={[styles.cornerDot, { backgroundColor: eventColor }]} />
+      </View>
+
+      {/* Bottom-left corner */}
+      <View
+        style={[styles.cornerHandle, styles.cornerBottomLeft]}
+        {...bottomLeftCornerPanResponder.panHandlers}
+      >
+        <View style={[styles.cornerDot, { backgroundColor: eventColor }]} />
+      </View>
+
+      {/* Bottom-right corner */}
+      <View
+        style={[styles.cornerHandle, styles.cornerBottomRight]}
+        {...bottomRightCornerPanResponder.panHandlers}
+      >
+        <View style={[styles.cornerDot, { backgroundColor: eventColor }]} />
       </View>
 
       {/* Drag indicator */}
@@ -446,6 +656,36 @@ const createStyles = (tokens: ThemeTokens) =>
       position: 'absolute',
       top: 4,
       right: 4,
+    },
+    cornerHandle: {
+      position: 'absolute',
+      width: CORNER_HANDLE_SIZE,
+      height: CORNER_HANDLE_SIZE,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 30,
+    },
+    cornerTopLeft: {
+      top: -CORNER_HANDLE_SIZE / 2,
+      left: -CORNER_HANDLE_SIZE / 2,
+    },
+    cornerTopRight: {
+      top: -CORNER_HANDLE_SIZE / 2,
+      right: -CORNER_HANDLE_SIZE / 2,
+    },
+    cornerBottomLeft: {
+      bottom: -CORNER_HANDLE_SIZE / 2,
+      left: -CORNER_HANDLE_SIZE / 2,
+    },
+    cornerBottomRight: {
+      bottom: -CORNER_HANDLE_SIZE / 2,
+      right: -CORNER_HANDLE_SIZE / 2,
+    },
+    cornerDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      opacity: 0.8,
     },
   });
 

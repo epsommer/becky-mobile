@@ -1,5 +1,5 @@
 /**
- * MonthView - Monthly calendar grid with event indicators
+ * MonthView - Monthly calendar grid with draggable event indicators
  */
 import React, { useMemo, useCallback } from 'react';
 import {
@@ -9,8 +9,10 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Event } from '../../lib/api/types';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
+import DraggableMonthEvent from './DraggableMonthEvent';
 
 const DAYS_IN_WEEK = 7;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -22,6 +24,8 @@ interface MonthViewProps {
   events: Event[];
   onDayPress?: (date: Date) => void;
   onEventPress?: (event: Event) => void;
+  onCreateEvent?: (date: Date) => void;
+  onEventMove?: (event: Event, newDate: Date) => void;
 }
 
 export default function MonthView({
@@ -29,6 +33,8 @@ export default function MonthView({
   events,
   onDayPress,
   onEventPress,
+  onCreateEvent,
+  onEventMove,
 }: MonthViewProps) {
   const { tokens } = useTheme();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
@@ -169,21 +175,37 @@ export default function MonthView({
                   onPress={() => onDayPress?.(day.date)}
                   activeOpacity={0.7}
                 >
-                  <View
-                    style={[
-                      styles.dayNumberContainer,
-                      day.isToday && styles.todayNumberContainer,
-                    ]}
-                  >
-                    <Text
+                  <View style={styles.dayHeader}>
+                    <View
                       style={[
-                        styles.dayNumber,
-                        !day.isCurrentMonth && styles.otherMonthDay,
-                        day.isToday && styles.todayNumber,
+                        styles.dayNumberContainer,
+                        day.isToday && styles.todayNumberContainer,
                       ]}
                     >
-                      {day.dayOfMonth}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.dayNumber,
+                          !day.isCurrentMonth && styles.otherMonthDay,
+                          day.isToday && styles.todayNumber,
+                        ]}
+                      >
+                        {day.dayOfMonth}
+                      </Text>
+                    </View>
+
+                    {/* Plus button for creating events */}
+                    {day.isCurrentMonth && onCreateEvent && (
+                      <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          onCreateEvent(day.date);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="add-circle" size={14} color={tokens.accent} />
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   {/* Event indicators */}
@@ -210,28 +232,17 @@ export default function MonthView({
                     </View>
                   )}
 
-                  {/* Event previews for larger cells */}
+                  {/* Event previews - draggable to move between days */}
                   {hasEvents && (
                     <View style={styles.eventPreviews}>
                       {dayEvents.slice(0, 2).map((event) => (
-                        <TouchableOpacity
+                        <DraggableMonthEvent
                           key={event.id}
-                          style={[
-                            styles.eventPreview,
-                            { backgroundColor: getEventColor(event) + '30' },
-                          ]}
+                          event={event}
+                          color={getEventColor(event)}
                           onPress={() => onEventPress?.(event)}
-                        >
-                          <Text
-                            style={[
-                              styles.eventPreviewText,
-                              { color: getEventColor(event) },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {event.title}
-                          </Text>
-                        </TouchableOpacity>
+                          onEventMove={onEventMove}
+                        />
                       ))}
                       {dayEvents.length > 2 && (
                         <Text style={styles.moreEventsText}>
@@ -290,12 +301,24 @@ const createStyles = (tokens: ThemeTokens) =>
     todayCell: {
       backgroundColor: tokens.accent + '10',
     },
+    dayHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 2,
+    },
     dayNumberContainer: {
       width: 24,
       height: 24,
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: 12,
+    },
+    addButton: {
+      width: 14,
+      height: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     todayNumberContainer: {
       backgroundColor: tokens.accent,

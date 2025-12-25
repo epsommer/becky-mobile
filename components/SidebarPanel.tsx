@@ -7,6 +7,7 @@ import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 const navigation = [
   "Dashboard",
+  "Analytics",
   "Clients",
   "Conversations",
   "Testimonials",

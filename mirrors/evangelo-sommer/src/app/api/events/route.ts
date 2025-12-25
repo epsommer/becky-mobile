@@ -4,6 +4,8 @@ import { participantManagementService } from '@/lib/participant-management'
 import { UnifiedEventsManager } from '@/lib/unified-events'
 import { ParticipantRole, ServiceType } from '@/types/participant-management'
 import { getPrismaClient } from '@/lib/prisma'
+import { decrypt } from '@/lib/encryption'
+import { google } from 'googleapis'
 import type { UnifiedEvent } from '@/components/EventCreationModal'
 import type { EventType, Priority, GoalTimeframe } from '@prisma/client'
 
@@ -45,17 +47,57 @@ function convertToUnifiedEvent(dbEvent: any): UnifiedEvent {
   } as UnifiedEvent
 }
 
+// Helper function to map event type to valid Prisma EventType enum
+function mapToValidEventType(type: string | undefined): EventType {
+  if (!type) return 'EVENT' as EventType
+
+  const normalizedType = type.toUpperCase()
+
+  // Valid Prisma EventType values: EVENT, TASK, GOAL, MILESTONE
+  const validTypes = ['EVENT', 'TASK', 'GOAL', 'MILESTONE']
+
+  if (validTypes.includes(normalizedType)) {
+    return normalizedType as EventType
+  }
+
+  // Map common alternative names to valid types
+  const typeMapping: Record<string, EventType> = {
+    'APPOINTMENT': 'EVENT' as EventType,
+    'MEETING': 'EVENT' as EventType,
+    'REMINDER': 'TASK' as EventType,
+    'TODO': 'TASK' as EventType,
+  }
+
+  return typeMapping[normalizedType] || ('EVENT' as EventType)
+}
+
+// Helper function to map priority to valid Prisma Priority enum
+function mapToValidPriority(priority: string | undefined): Priority {
+  if (!priority) return 'MEDIUM' as Priority
+
+  const normalizedPriority = priority.toUpperCase()
+
+  // Valid Prisma Priority values: LOW, MEDIUM, HIGH, URGENT
+  const validPriorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT']
+
+  if (validPriorities.includes(normalizedPriority)) {
+    return normalizedPriority as Priority
+  }
+
+  return 'MEDIUM' as Priority
+}
+
 // Helper function to convert UnifiedEvent to Prisma Event format
 function convertToPrismaEvent(event: UnifiedEvent): any {
   return {
     id: event.id,
-    type: event.type.toUpperCase() as EventType,
+    type: mapToValidEventType(event.type),
     title: event.title,
     description: event.description,
     startDateTime: event.startDateTime,
     endDateTime: event.endDateTime,
-    duration: event.duration,
-    priority: event.priority.toUpperCase() as Priority,
+    duration: event.duration || 60, // Default to 60 minutes if not provided
+    priority: mapToValidPriority(event.priority),
     clientId: event.clientId,
     clientName: event.clientName,
     location: event.location,
@@ -108,6 +150,185 @@ function convertFromPrismaEvent(prismaEvent: any): UnifiedEvent {
     dependencies: prismaEvent.dependencies ? JSON.parse(prismaEvent.dependencies) : undefined,
     createdAt: prismaEvent.createdAt.toISOString(),
     updatedAt: prismaEvent.updatedAt.toISOString(),
+  }
+}
+
+/**
+ * Sync an event to all active external calendar integrations (Google, Notion, etc.)
+ * This is called after event creation or update.
+ */
+async function syncEventToExternalCalendars(
+  event: UnifiedEvent,
+  prisma: any,
+  mode: 'create' | 'update' = 'create'
+): Promise<{ provider: string; success: boolean; externalId?: string; error?: string }[]> {
+  const results: { provider: string; success: boolean; externalId?: string; error?: string }[] = []
+
+  if (!prisma) {
+    console.log('📅 [ExternalSync] No database connection, skipping external calendar sync')
+    return results
+  }
+
+  try {
+    // Find all active calendar integrations
+    const integrations = await prisma.calendarIntegration.findMany({
+      where: { isActive: true },
+      include: { participant: true }
+    })
+
+    if (integrations.length === 0) {
+      console.log('📅 [ExternalSync] No active calendar integrations found')
+      return results
+    }
+
+    console.log(`📅 [ExternalSync] Found ${integrations.length} active calendar integration(s)`)
+
+    for (const integration of integrations) {
+      try {
+        if (integration.provider === 'GOOGLE') {
+          const result = await syncToGoogleCalendar(event, integration, prisma, mode)
+          results.push({ provider: 'GOOGLE', ...result })
+        } else if (integration.provider === 'NOTION') {
+          // TODO: Implement Notion sync
+          console.log('📅 [ExternalSync] Notion sync not yet implemented')
+          results.push({ provider: 'NOTION', success: false, error: 'Not implemented' })
+        }
+      } catch (integrationError) {
+        console.error(`📅 [ExternalSync] Error syncing to ${integration.provider}:`, integrationError)
+        results.push({
+          provider: integration.provider,
+          success: false,
+          error: integrationError instanceof Error ? integrationError.message : 'Unknown error'
+        })
+      }
+    }
+  } catch (error) {
+    console.error('📅 [ExternalSync] Error fetching calendar integrations:', error)
+  }
+
+  return results
+}
+
+/**
+ * Sync a single event to Google Calendar
+ */
+async function syncToGoogleCalendar(
+  event: UnifiedEvent,
+  integration: any,
+  prisma: any,
+  mode: 'create' | 'update'
+): Promise<{ success: boolean; externalId?: string; error?: string }> {
+  console.log(`📅 [GoogleSync] ${mode === 'create' ? 'Creating' : 'Updating'} event in Google Calendar: ${event.title}`)
+
+  // Validate Google OAuth credentials
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return { success: false, error: 'Google OAuth not configured' }
+  }
+
+  // Decrypt tokens
+  let accessToken: string
+  let refreshToken: string | null = null
+
+  try {
+    accessToken = decrypt(integration.accessToken)
+    if (integration.refreshToken) {
+      refreshToken = decrypt(integration.refreshToken)
+    }
+  } catch (error) {
+    console.error('📅 [GoogleSync] Failed to decrypt tokens:', error)
+    return { success: false, error: 'Failed to decrypt credentials' }
+  }
+
+  // Create OAuth client
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+  )
+
+  oauth2Client.setCredentials({
+    access_token: accessToken,
+    refresh_token: refreshToken
+  })
+
+  // Handle token refresh
+  oauth2Client.on('tokens', async (tokens) => {
+    if (tokens.access_token) {
+      try {
+        const { encrypt } = await import('@/lib/encryption')
+        const encryptedAccessToken = encrypt(tokens.access_token)
+        const encryptedRefreshToken = tokens.refresh_token
+          ? encrypt(tokens.refresh_token)
+          : undefined
+
+        await prisma.calendarIntegration.update({
+          where: { id: integration.id },
+          data: {
+            accessToken: encryptedAccessToken,
+            ...(encryptedRefreshToken && { refreshToken: encryptedRefreshToken }),
+            expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+          }
+        })
+        console.log('📅 [GoogleSync] Refreshed and stored new tokens')
+      } catch (error) {
+        console.error('📅 [GoogleSync] Failed to store refreshed tokens:', error)
+      }
+    }
+  })
+
+  try {
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+    const calendarId = integration.externalId || 'primary'
+
+    // Convert event to Google Calendar format
+    const endDateTime = event.endDateTime || event.startDateTime
+    const googleEvent: any = {
+      summary: event.title,
+      description: event.description || undefined,
+      location: event.location || undefined,
+      start: event.isAllDay
+        ? { date: event.startDateTime.split('T')[0] }
+        : { dateTime: event.startDateTime, timeZone: 'America/New_York' },
+      end: event.isAllDay
+        ? { date: endDateTime.split('T')[0] }
+        : { dateTime: endDateTime, timeZone: 'America/New_York' },
+    }
+
+    let response
+    if (mode === 'create') {
+      response = await calendar.events.insert({
+        calendarId,
+        requestBody: googleEvent,
+      })
+      console.log(`📅 [GoogleSync] Event created in Google Calendar: ${response.data.id}`)
+    } else {
+      // For updates, we need the Google event ID
+      // TODO: Store and retrieve googleCalendarEventId from event metadata
+      response = await calendar.events.insert({
+        calendarId,
+        requestBody: googleEvent,
+      })
+      console.log(`📅 [GoogleSync] Event created (update mode - no existing ID): ${response.data.id}`)
+    }
+
+    // Update last sync time
+    await prisma.calendarIntegration.update({
+      where: { id: integration.id },
+      data: { lastSyncAt: new Date(), lastSyncError: null }
+    })
+
+    return { success: true, externalId: response.data.id || undefined }
+
+  } catch (error: any) {
+    console.error('📅 [GoogleSync] Google Calendar API error:', error)
+
+    // Update sync error
+    await prisma.calendarIntegration.update({
+      where: { id: integration.id },
+      data: { lastSyncError: error.message || 'Unknown error' }
+    })
+
+    return { success: false, error: error.message || 'Google Calendar API error' }
   }
 }
 
@@ -272,7 +493,15 @@ export async function POST(request: NextRequest) {
       }
     } else {
       console.log('📝 Event created without participants')
-      
+
+      // Sync to external calendars (Google, Notion, etc.)
+      const externalSyncResults = await syncEventToExternalCalendars(newEvent, prisma, 'create')
+      const syncedProviders = externalSyncResults.filter(r => r.success).map(r => r.provider)
+
+      if (syncedProviders.length > 0) {
+        console.log(`📅 Event synced to external calendars: ${syncedProviders.join(', ')}`)
+      }
+
       // No participants - just return the event
       return NextResponse.json({
         success: true,
@@ -281,7 +510,8 @@ export async function POST(request: NextRequest) {
           persisted: dbEvent !== null,
           eventId: dbEvent?.id
         },
-        message: `Event created successfully${dbEvent ? ' and persisted to database' : ''}`
+        externalSync: externalSyncResults,
+        message: `Event created successfully${dbEvent ? ' and persisted to database' : ''}${syncedProviders.length > 0 ? ` and synced to ${syncedProviders.join(', ')}` : ''}`
       })
     }
     
@@ -448,6 +678,14 @@ export async function PUT(request: NextRequest) {
 
     console.log('🔄 API PUT - Event update completed successfully')
 
+    // Sync updated event to external calendars (Google, Notion, etc.)
+    const externalSyncResults = await syncEventToExternalCalendars(updatedEvent, prisma, 'update')
+    const syncedProviders = externalSyncResults.filter(r => r.success).map(r => r.provider)
+
+    if (syncedProviders.length > 0) {
+      console.log(`📅 Event update synced to external calendars: ${syncedProviders.join(', ')}`)
+    }
+
     return NextResponse.json({
       success: true,
       event: updatedEvent,
@@ -455,7 +693,8 @@ export async function PUT(request: NextRequest) {
         persisted: dbEvent !== null,
         eventId: dbEvent?.id
       },
-      message: `Event updated successfully${dbEvent ? ' and persisted to database' : ''}`
+      externalSync: externalSyncResults,
+      message: `Event updated successfully${dbEvent ? ' and persisted to database' : ''}${syncedProviders.length > 0 ? ` and synced to ${syncedProviders.join(', ')}` : ''}`
     })
 
   } catch (error) {

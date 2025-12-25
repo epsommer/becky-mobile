@@ -169,4 +169,120 @@ export const testimonialsApi = {
   }): Promise<ApiResponse<any>> => {
     return apiClient.post<any>('/api/testimonials/send-request', data);
   },
+
+  /**
+   * Approve a testimonial
+   *
+   * @param testimonialId - Testimonial ID
+   * @returns Updated testimonial
+   */
+  approveTestimonial: async (
+    testimonialId: string
+  ): Promise<ApiResponse<Testimonial>> => {
+    return apiClient.patch<Testimonial>(
+      `/api/testimonials/${testimonialId}`,
+      { status: 'APPROVED', approvedAt: new Date().toISOString() }
+    );
+  },
+
+  /**
+   * Reject a testimonial
+   *
+   * @param testimonialId - Testimonial ID
+   * @param reason - Optional rejection reason
+   * @returns Updated testimonial
+   */
+  rejectTestimonial: async (
+    testimonialId: string,
+    reason?: string
+  ): Promise<ApiResponse<Testimonial>> => {
+    return apiClient.patch<Testimonial>(
+      `/api/testimonials/${testimonialId}`,
+      {
+        status: 'REJECTED',
+        ...(reason && { metadata: { rejectionReason: reason } })
+      }
+    );
+  },
+
+  /**
+   * Toggle featured status
+   *
+   * @param testimonialId - Testimonial ID
+   * @param isFeatured - Whether the testimonial should be featured
+   * @returns Updated testimonial
+   */
+  toggleFeatured: async (
+    testimonialId: string,
+    isFeatured: boolean
+  ): Promise<ApiResponse<Testimonial>> => {
+    return apiClient.patch<Testimonial>(
+      `/api/testimonials/${testimonialId}`,
+      { isFeatured }
+    );
+  },
+
+  /**
+   * Toggle public visibility
+   *
+   * @param testimonialId - Testimonial ID
+   * @param isPublic - Whether the testimonial should be public
+   * @returns Updated testimonial
+   */
+  toggleVisibility: async (
+    testimonialId: string,
+    isPublic: boolean
+  ): Promise<ApiResponse<Testimonial>> => {
+    return apiClient.patch<Testimonial>(
+      `/api/testimonials/${testimonialId}`,
+      { isPublic }
+    );
+  },
+
+  /**
+   * Batch approve testimonials
+   *
+   * @param testimonialIds - Array of testimonial IDs
+   * @returns Success response with updated count
+   */
+  batchApprove: async (
+    testimonialIds: string[]
+  ): Promise<ApiResponse<{ updated: number }>> => {
+    return apiClient.post<{ updated: number }>(
+      '/api/testimonials/batch',
+      { action: 'approve', ids: testimonialIds }
+    );
+  },
+
+  /**
+   * Batch reject testimonials
+   *
+   * @param testimonialIds - Array of testimonial IDs
+   * @param reason - Optional rejection reason
+   * @returns Success response with updated count
+   */
+  batchReject: async (
+    testimonialIds: string[],
+    reason?: string
+  ): Promise<ApiResponse<{ updated: number }>> => {
+    return apiClient.post<{ updated: number }>(
+      '/api/testimonials/batch',
+      { action: 'reject', ids: testimonialIds, reason }
+    );
+  },
+
+  /**
+   * Batch delete testimonials
+   *
+   * @param testimonialIds - Array of testimonial IDs
+   * @returns Success response with deleted count
+   */
+  batchDelete: async (
+    testimonialIds: string[]
+  ): Promise<ApiResponse<{ deleted: number }>> => {
+    return apiClient.post<{ deleted: number }>(
+      '/api/testimonials/batch',
+      { action: 'delete', ids: testimonialIds }
+    );
+  },
 };

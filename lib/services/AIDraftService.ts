@@ -7,7 +7,7 @@ const API_KEY = ANTHROPIC_API_KEY || '';
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
 export type MessageTone = 'professional' | 'friendly' | 'formal' | 'casual';
-export type MessageType = 'response' | 'follow-up' | 'inquiry' | 'thank-you' | 'reminder';
+export type MessageType = 'response' | 'follow-up' | 'inquiry' | 'thank-you' | 'reminder' | 'meeting-confirmation' | 'general-outreach';
 export type ContextMode = 'full' | 'specific' | 'new';
 
 export interface ConversationMessage {

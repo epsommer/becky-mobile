@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, Animated, LayoutAnimation, Platform, UIManager } from "react-native";
+import React, { useEffect, useRef, useCallback } from "react";
+import { StyleSheet, Text, TouchableOpacity, View, Animated, LayoutAnimation, Platform, UIManager, ActivityIndicator, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { ThemeTokens, useTheme } from "../theme/ThemeContext";
 
 // Enable LayoutAnimation on Android
@@ -61,6 +62,8 @@ export default function ClientSelectorPanel({
   const [receiptClientId, setReceiptClientId] = React.useState<string | null>(null);
   const [showTimeTrackerModal, setShowTimeTrackerModal] = React.useState(false);
   const [timerClientId, setTimerClientId] = React.useState<string | null>(null);
+  const [batchLoading, setBatchLoading] = React.useState(false);
+  const [batchProgress, setBatchProgress] = React.useState<{ current: number; total: number } | null>(null);
 
   // Animation for list appearance
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -147,8 +150,8 @@ export default function ClientSelectorPanel({
 
   const headerText = isRecent ? 'Recent Clients' : 'Clients';
 
-  // Toggle checkbox selection
-  const toggleClientSelection = (clientId: string) => {
+  // Toggle checkbox selection with haptic feedback
+  const toggleClientSelection = useCallback((clientId: string) => {
     setSelectedClients(prev => {
       const newSet = new Set(prev);
       if (newSet.has(clientId)) {
@@ -158,7 +161,23 @@ export default function ClientSelectorPanel({
       }
       return newSet;
     });
-  };
+    // Haptic feedback
+    Haptics.selectionAsync().catch(() => {});
+  }, []);
+
+  // Select all clients
+  const handleSelectAll = useCallback(() => {
+    if (!sortedClients) return;
+    const allIds = sortedClients.map(c => c.id);
+    if (selectedClients.size === allIds.length) {
+      // All selected, deselect all
+      setSelectedClients(new Set());
+    } else {
+      // Select all
+      setSelectedClients(new Set(allIds));
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  }, [sortedClients, selectedClients.size]);
 
   // Menu action handlers
   const handleViewInfo = (client: SelectorClient) => {
@@ -207,10 +226,10 @@ export default function ClientSelectorPanel({
     });
   };
 
-  // Batch operation handlers
-  const handleBatchDelete = () => {
+  // Batch operation handlers with progress tracking
+  const handleBatchDelete = useCallback(async () => {
     const count = selectedClients.size;
-    if (count === 0) return;
+    if (count === 0 || batchLoading) return;
 
     console.log('[ClientSelectorPanel] Batch delete:', Array.from(selectedClients));
 
@@ -219,29 +238,65 @@ export default function ClientSelectorPanel({
       message: `This will permanently remove ${count} client${count > 1 ? 's' : ''} and all associated data.`,
       confirmText: `Delete ${count}`,
       onConfirm: async () => {
+        setBatchLoading(true);
+        const clientIds = Array.from(selectedClients);
+        let successCount = 0;
+        let failedCount = 0;
+
         try {
-          const clientIds = Array.from(selectedClients);
-          // Delete clients one by one (could be optimized with a batch API endpoint)
-          for (const clientId of clientIds) {
-            await clientsApi.deleteClient(clientId);
+          for (let i = 0; i < clientIds.length; i++) {
+            setBatchProgress({ current: i + 1, total: clientIds.length });
+            try {
+              const response = await clientsApi.deleteClient(clientIds[i]);
+              if (response.success) {
+                successCount++;
+              } else {
+                failedCount++;
+              }
+            } catch (err) {
+              failedCount++;
+              console.error(`[ClientSelectorPanel] Failed to delete client ${clientIds[i]}:`, err);
+            }
           }
-          console.log('[ClientSelectorPanel] Batch delete completed');
+
+          console.log('[ClientSelectorPanel] Batch delete completed:', { successCount, failedCount });
+
+          if (failedCount > 0 && successCount > 0) {
+            Alert.alert(
+              'Partial Success',
+              `Deleted ${successCount} of ${count} clients. ${failedCount} failed.`
+            );
+          } else if (failedCount > 0) {
+            Alert.alert('Error', 'Failed to delete clients. Please try again.');
+          }
+
           setSelectedClients(new Set());
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         } catch (error) {
           console.error('[ClientSelectorPanel] Error during batch delete:', error);
+          Alert.alert('Error', 'An error occurred during batch delete.');
+        } finally {
+          setBatchLoading(false);
+          setBatchProgress(null);
         }
       },
     });
-  };
+  }, [selectedClients, batchLoading]);
 
-  const handleBatchExport = () => {
+  const handleBatchExport = useCallback(() => {
+    const count = selectedClients.size;
     console.log('[ClientSelectorPanel] Batch export:', Array.from(selectedClients));
-    // TODO: Export selected clients to CSV or similar
-  };
+    // TODO: Implement export functionality
+    Alert.alert(
+      'Export Clients',
+      `Export functionality for ${count} client${count > 1 ? 's' : ''} coming soon.`
+    );
+  }, [selectedClients]);
 
-  const handleDeselectAll = () => {
+  const handleDeselectAll = useCallback(() => {
     setSelectedClients(new Set());
-  };
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  }, []);
 
   // Quick action handlers
   const handleMessage = (client: SelectorClient) => {
@@ -272,32 +327,63 @@ export default function ClientSelectorPanel({
   };
 
   const selectedCount = selectedClients.size;
+  const allSelected = sortedClients && sortedClients.length > 0 && selectedCount === sortedClients.length;
 
   return (
     <View style={styles.panel}>
       <View style={styles.headingRow}>
         <Text style={styles.heading}>{headerText}</Text>
-        {isRecent && (
-          <TouchableOpacity
-            onPress={onNavigateToClients}
-            style={styles.iconButton}
-            activeOpacity={0.6}
-          >
-            <Ionicons name="chevron-forward" size={18} color={tokens.accent} />
-          </TouchableOpacity>
-        )}
+        <View style={styles.headerActions}>
+          {/* Select All button - only show when not in recent mode */}
+          {!isRecent && sortedClients && sortedClients.length > 0 && (
+            <TouchableOpacity
+              onPress={handleSelectAll}
+              style={[styles.selectAllButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={allSelected ? 'checkbox' : 'checkbox-outline'}
+                size={16}
+                color={allSelected ? tokens.accent : tokens.textSecondary}
+              />
+              <Text style={[styles.selectAllText, { color: allSelected ? tokens.accent : tokens.textSecondary }]}>
+                {allSelected ? 'Deselect' : 'Select All'}
+              </Text>
+            </TouchableOpacity>
+          )}
+          {isRecent && (
+            <TouchableOpacity
+              onPress={onNavigateToClients}
+              style={styles.iconButton}
+              activeOpacity={0.6}
+            >
+              <Ionicons name="chevron-forward" size={18} color={tokens.accent} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Batch Operations Bar */}
       {selectedCount > 0 && (
         <View style={[styles.batchBar, { backgroundColor: tokens.highlight + '20', borderColor: tokens.accent }]}>
-          <Text style={[styles.batchCount, { color: tokens.textPrimary }]}>
-            {selectedCount} selected
-          </Text>
+          <View style={styles.batchCountContainer}>
+            <Text style={[styles.batchCount, { color: tokens.textPrimary }]}>
+              {selectedCount} selected
+            </Text>
+            {batchProgress && (
+              <View style={styles.progressContainer}>
+                <ActivityIndicator size="small" color={tokens.accent} />
+                <Text style={[styles.progressText, { color: tokens.textSecondary }]}>
+                  {batchProgress.current}/{batchProgress.total}
+                </Text>
+              </View>
+            )}
+          </View>
           <View style={styles.batchActions}>
             <TouchableOpacity
               style={[styles.batchButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
               onPress={handleBatchExport}
+              disabled={batchLoading}
             >
               <Ionicons name="download-outline" size={16} color={tokens.accent} />
               <Text style={[styles.batchButtonText, { color: tokens.accent }]}>Export</Text>
@@ -305,16 +391,29 @@ export default function ClientSelectorPanel({
             <TouchableOpacity
               style={[styles.batchButton, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
               onPress={handleDeselectAll}
+              disabled={batchLoading}
             >
               <Ionicons name="close" size={16} color={tokens.textSecondary} />
               <Text style={[styles.batchButtonText, { color: tokens.textSecondary }]}>Clear</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.batchButton, styles.batchButtonDanger, { borderColor: tokens.error || '#ef4444' }]}
+              style={[
+                styles.batchButton,
+                styles.batchButtonDanger,
+                { borderColor: tokens.error || '#ef4444' },
+                batchLoading && styles.batchButtonDisabled,
+              ]}
               onPress={handleBatchDelete}
+              disabled={batchLoading}
             >
-              <Ionicons name="trash-outline" size={16} color={tokens.error || '#ef4444'} />
-              <Text style={[styles.batchButtonText, { color: tokens.error || '#ef4444' }]}>Delete</Text>
+              {batchLoading ? (
+                <ActivityIndicator size="small" color={tokens.error || '#ef4444'} />
+              ) : (
+                <Ionicons name="trash-outline" size={16} color={tokens.error || '#ef4444'} />
+              )}
+              <Text style={[styles.batchButtonText, { color: tokens.error || '#ef4444' }]}>
+                {batchLoading ? 'Deleting...' : 'Delete'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -554,6 +653,24 @@ const createStyles = (tokens: ThemeTokens) =>
       fontSize: 16,
       fontWeight: "700",
     },
+    headerActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    selectAllButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    selectAllText: {
+      fontSize: 12,
+      fontWeight: "600",
+    },
     cta: {
       color: tokens.accent,
       textTransform: "uppercase",
@@ -663,9 +780,21 @@ const createStyles = (tokens: ThemeTokens) =>
       marginTop: 12,
       marginBottom: 12,
     },
+    batchCountContainer: {
+      flexDirection: "column",
+      gap: 4,
+    },
     batchCount: {
       fontSize: 14,
       fontWeight: "600",
+    },
+    progressContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    progressText: {
+      fontSize: 12,
     },
     batchActions: {
       flexDirection: "row",
@@ -682,6 +811,9 @@ const createStyles = (tokens: ThemeTokens) =>
     },
     batchButtonDanger: {
       backgroundColor: "transparent",
+    },
+    batchButtonDisabled: {
+      opacity: 0.6,
     },
     batchButtonText: {
       fontSize: 13,

@@ -61,11 +61,13 @@ export const calendarIntegrationsApi = {
   },
 
   /**
-   * Initiate Google OAuth flow
+   * Initiate Google OAuth flow for mobile
    * Returns the authorization URL to redirect the user to
+   * Uses the mobile-specific endpoint that handles JWT auth and mobile callbacks
    */
-  initiateGoogleAuth: async (): Promise<ApiResponse<{ authUrl: string }>> => {
-    return apiClient.get<{ authUrl: string }>('/api/auth/google');
+  initiateGoogleAuth: async (): Promise<ApiResponse<{ authUrl: string; state: string }>> => {
+    // Use the mobile-specific endpoint
+    return apiClient.get<{ authUrl: string; state: string }>('/api/auth/google/mobile');
   },
 
   /**

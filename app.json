@@ -30,6 +30,7 @@
         "READ_CONTACTS",
         "READ_SMS",
         "READ_CALENDAR",
+        "WRITE_CALENDAR",
         "GET_ACCOUNTS",
         "WAKE_LOCK",
         "RECEIVE_BOOT_COMPLETED"

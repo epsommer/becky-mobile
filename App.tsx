@@ -21,6 +21,7 @@ import TimeManagerScreen from "./components/screens/TimeManagerScreen";
 import GoalsScreen from "./components/screens/GoalsScreen";
 import ServiceLinesScreen from "./components/screens/ServiceLinesScreen";
 import ContactsListScreen from "./components/screens/ContactsListScreen";
+import AnalyticsDashboardScreen from "./components/screens/AnalyticsDashboardScreen";
 import { useFonts } from "expo-font";
 import { Ionicons } from "@expo/vector-icons";
 import NeomorphicCard from "./components/NeomorphicCard";
@@ -35,6 +36,7 @@ SplashScreen.preventAutoHideAsync();
 
 type PageKey =
   | "Dashboard"
+  | "Analytics"
   | "Clients"
   | "Conversations"
   | "Testimonials"
@@ -45,6 +47,7 @@ type PageKey =
 
 const navigationLinks: PageKey[] = [
   "Dashboard",
+  "Analytics",
   "Clients",
   "Conversations",
   "Testimonials",
@@ -332,6 +335,8 @@ function ThemedApp() {
             onViewClientDetail={handleViewClientDetail}
           />
         );
+      case "Analytics":
+        return <AnalyticsDashboardScreen />;
       case "Clients":
         return (
           <ClientsScreen
