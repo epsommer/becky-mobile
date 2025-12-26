@@ -21,6 +21,7 @@ import {
   DateRangeSelector,
   RevenueChart,
   ServiceLineBreakdown,
+  ServiceAnalytics,
   ClientStatusChart,
   ClientGrowthChart,
   TopClientsCard,
@@ -242,6 +243,15 @@ export default function AnalyticsDashboardScreen() {
           data={data?.revenue?.revenueByServiceLine || []}
           loading={loading}
           title="Revenue by Service"
+        />
+
+        {/* Service Line Analytics - Detailed Performance */}
+        <Text style={styles.sectionTitle}>Service Line Analytics</Text>
+        <ServiceAnalytics
+          revenueData={data?.revenue?.revenueByServiceLine || []}
+          dateRange={dateRange}
+          loading={loading}
+          title="Service Performance"
         />
 
         {/* Client Metrics Section */}

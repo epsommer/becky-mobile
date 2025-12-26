@@ -303,7 +303,7 @@ Generated: December 24, 2025
 - [x] Growth metrics - Fully implemented (ClientGrowthChart, new clients tracking, retention rate display)
 - [x] Client analytics - Fully implemented (ClientStatusChart, TopClientsCard, client distribution by status)
 - [~] Conversation analytics - Partially implemented (activity metrics exist, detailed conversation analytics pending)
-- [x] Service line performance - Fully implemented (ServiceLineBreakdown with pie chart and revenue by service)
+- [x] Service line performance - Fully implemented (ServiceAnalytics with overview, detail view, comparison, pie/bar/line charts; ServiceLineBreakdown with pie chart and revenue by service)
 - [x] Data visualization (charts) - Fully implemented (react-native-chart-kit with LineChart, PieChart, custom bar charts)
 - [x] Export capabilities - Fully implemented (CSV export for analytics, clients, receipts, invoices via ExportButton and services/export.ts)
 
@@ -366,7 +366,7 @@ Generated: December 24, 2025
 5. ~~**File Upload** - Attach documents to conversations~~ DONE - FileUploader with document/image/camera picker, MessageComposer integration
 6. **Calendar Export** - Share calendar data
 7. **Receipt Archiving** - Better receipt organization
-8. ~~**Service Line Analytics** - Performance tracking per service~~ DONE - ServiceLineBreakdown component with pie chart and revenue breakdown
+8. ~~**Service Line Analytics** - Performance tracking per service~~ DONE - ServiceAnalytics component with overview metrics, detail modal (revenue breakdown, top clients, testimonials, hours tracked), comparison mode with side-by-side charts, integrated into AnalyticsDashboardScreen
 
 ### Low Priority (Can Defer)
 1. **Notion Integration** - Niche use case
