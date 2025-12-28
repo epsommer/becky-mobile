@@ -107,6 +107,14 @@ function AuthGate() {
 
   console.log('[AuthGate] Auth state:', { isAuthenticated, loading, showSuccess });
 
+  // Hide splash screen when auth check completes
+  useEffect(() => {
+    if (!loading) {
+      SplashScreen.hideAsync();
+      console.log('[AuthGate] Splash screen hidden');
+    }
+  }, [loading]);
+
   // Handle success animation transition
   useEffect(() => {
     if (showSuccess) {
@@ -204,20 +212,7 @@ function ThemedApp() {
 
   console.log('[ThemedApp] Fonts loaded:', fontsLoaded);
 
-  // Hide splash screen once fonts are loaded
-  useEffect(() => {
-    if (fontsLoaded) {
-      const hideSplash = async () => {
-        try {
-          await SplashScreen.hideAsync();
-          console.log('[ThemedApp] Splash screen hidden');
-        } catch (error) {
-          console.warn('[ThemedApp] Error hiding splash screen:', error);
-        }
-      };
-      hideSplash();
-    }
-  }, [fontsLoaded]);
+  // Note: Splash screen is now hidden in AuthGate when auth check completes
 
   useEffect(() => {
     const darkMode = windowTheme === "tactical";
