@@ -2,6 +2,7 @@
  * WeekView - Weekly calendar view with day columns, drag-drop events,
  * and corner resize handles for multi-day event creation
  * Includes conflict highlighting during drag operations
+ * Supports long-press drag-to-create for new events
  */
 import React, { useMemo, useState, useCallback, useRef } from 'react';
 import {
@@ -12,13 +13,17 @@ import {
   TouchableOpacity,
   Dimensions,
   PanResponder,
-  Animated,
+  LayoutChangeEvent,
 } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Event } from '../../lib/api/types';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import EventBlock, { PIXELS_PER_HOUR } from './EventBlock';
 import { getConflictingEvents } from '../../utils/eventConflicts';
+import PlaceholderContainer from './PlaceholderContainer';
+import { useDragToCreate, DragState, minutesToPixels } from './gestures';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const DAYS_IN_WEEK = 7;
@@ -42,6 +47,7 @@ interface WeekViewProps {
   onTimeSlotPress?: (date: Date, hour: number) => void;
   onEventUpdate?: (event: Event, newStart: string, newEnd: string) => void;
   onDayPress?: (date: Date) => void;
+  onEventCreate?: (startDate: Date, endDate: Date) => void;
 }
 
 // State for corner resize operation
@@ -63,6 +69,7 @@ export default function WeekView({
   onTimeSlotPress,
   onEventUpdate,
   onDayPress,
+  onEventCreate,
 }: WeekViewProps) {
   const { tokens } = useTheme();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
@@ -89,8 +96,71 @@ export default function WeekView({
   const [resizeHandle, setResizeHandle] = useState<'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null>(null);
   const [resizeOffset, setResizeOffset] = useState(0);
 
+  // Track grid layout for gesture calculations
+  const [gridTop, setGridTop] = useState(0);
+  const [gridLeft, setGridLeft] = useState(0);
+
+  // Handle grid layout
+  const handleGridLayout = useCallback((event: LayoutChangeEvent) => {
+    setGridTop(event.nativeEvent.layout.y);
+    setGridLeft(event.nativeEvent.layout.x);
+  }, []);
+
+  // Drag-to-create hook handlers
+  const handleCreateDragStart = useCallback((state: DragState) => {
+    console.log('[WeekView] Drag-to-create started:', state);
+  }, []);
+
+  const handleCreateDragUpdate = useCallback((state: DragState) => {
+    // Placeholder updates automatically via dragState
+  }, []);
+
+  const handleCreateDragEnd = useCallback((state: DragState) => {
+    console.log('[WeekView] Drag-to-create ended:', state);
+    if (onEventCreate) {
+      const startDate = new Date(state.startDate);
+      startDate.setHours(state.startHour, state.startMinutes, 0, 0);
+
+      const endDate = new Date(state.endDate);
+      endDate.setHours(state.endHour, state.endMinutes, 0, 0);
+
+      onEventCreate(startDate, endDate);
+    }
+  }, [onEventCreate]);
+
+  const handleCreateDragCancel = useCallback(() => {
+    console.log('[WeekView] Drag-to-create cancelled');
+  }, []);
+
+  const { composedGesture, dragState, isDragging: isCreating, cancelDrag } = useDragToCreate({
+    viewType: 'week',
+    pixelsPerHour: PIXELS_PER_HOUR,
+    gridTop,
+    gridLeft,
+    timeColumnWidth: TIME_LABEL_WIDTH,
+    dayColumnWidth: DAY_COLUMN_WIDTH,
+    startDate,
+    onDragStart: handleCreateDragStart,
+    onDragUpdate: handleCreateDragUpdate,
+    onDragEnd: handleCreateDragEnd,
+    onDragCancel: handleCreateDragCancel,
+    enabled: !draggingEvent && !resizingEvent && !cornerResize.event,
+  });
+
+  // Calculate placeholder position from drag state
+  const placeholderPosition = useMemo(() => {
+    if (!dragState) return null;
+    const top = (dragState.startHour + dragState.startMinutes / 60) * PIXELS_PER_HOUR;
+    const height = minutesToPixels(dragState.durationMinutes, PIXELS_PER_HOUR);
+    // Calculate which day column to show the placeholder in
+    const dayIndex = new Date(dragState.startDate).getDay();
+    const left = TIME_LABEL_WIDTH + dayIndex * DAY_COLUMN_WIDTH + 1;
+    const width = DAY_COLUMN_WIDTH - 2;
+    return { top, height, left, width };
+  }, [dragState]);
+
   // Disable scroll when interacting
-  const isInteracting = draggingEvent !== null || cornerResize.event !== null || resizingEvent !== null;
+  const isInteracting = draggingEvent !== null || cornerResize.event !== null || resizingEvent !== null || isCreating;
 
   // Calculate conflict zones during drag/resize
   const conflictZones = useMemo(() => {
@@ -469,18 +539,43 @@ export default function WeekView({
         showsVerticalScrollIndicator={false}
         scrollEnabled={!isInteracting}
       >
-        <View style={styles.gridContainer}>
-          {/* Hour labels */}
-          <View style={styles.timeColumn}>
-            {HOURS.map((hour) => (
-              <View key={hour} style={styles.hourLabelRow}>
-                <Text style={styles.hourText}>{formatHour(hour)}</Text>
-              </View>
-            ))}
-          </View>
+        <GestureDetector gesture={composedGesture}>
+          <Animated.View style={styles.gridContainer} onLayout={handleGridLayout}>
+            {/* Hour labels */}
+            <View style={styles.timeColumn}>
+              {HOURS.map((hour) => (
+                <View key={hour} style={styles.hourLabelRow}>
+                  <Text style={styles.hourText}>{formatHour(hour)}</Text>
+                </View>
+              ))}
+            </View>
 
-          {/* Day columns */}
-          <View style={styles.daysContainer}>
+            {/* Placeholder for drag-to-create (positioned absolutely in gridContainer) */}
+            {dragState && placeholderPosition && (
+              <PlaceholderContainer
+                visible={isCreating}
+                startTime={(() => {
+                  const d = new Date(dragState.startDate);
+                  d.setHours(dragState.startHour, dragState.startMinutes, 0, 0);
+                  return d;
+                })()}
+                endTime={(() => {
+                  const d = new Date(dragState.endDate);
+                  d.setHours(dragState.endHour, dragState.endMinutes, 0, 0);
+                  return d;
+                })()}
+                onComplete={() => {}}
+                onCancel={cancelDrag}
+                viewType="week"
+                top={placeholderPosition.top}
+                left={placeholderPosition.left}
+                width={placeholderPosition.width}
+                height={placeholderPosition.height}
+              />
+            )}
+
+            {/* Day columns */}
+            <View style={styles.daysContainer}>
             {weekDates.map((date, dayIndex) => (
               <View key={dayIndex} style={styles.dayColumn}>
                 {/* Hour slots */}
@@ -599,7 +694,8 @@ export default function WeekView({
               </View>
             ))}
           </View>
-        </View>
+          </Animated.View>
+        </GestureDetector>
       </ScrollView>
     </View>
   );

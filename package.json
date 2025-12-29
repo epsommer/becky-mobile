@@ -11,6 +11,7 @@
   "dependencies": {
     "@babel/core": "^7.28.5",
     "@expo/vector-icons": "~14.0.4",
+    "@gorhom/bottom-sheet": "^5.2.8",
     "@nozbe/watermelondb": "^0.27.1",
     "@nozbe/with-observables": "^1.6.0",
     "@prisma/client": "6.17.1",
@@ -41,6 +42,8 @@
     "react-native": "0.76.9",
     "react-native-chart-kit": "^6.12.0",
     "react-native-dotenv": "^3.4.11",
+    "react-native-gesture-handler": "~2.20.2",
+    "react-native-reanimated": "~3.16.1",
     "react-native-shadow-2": "^7.1.2",
     "react-native-svg": "15.8.0"
   },

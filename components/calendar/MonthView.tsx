@@ -1,15 +1,20 @@
 /**
  * MonthView - Monthly calendar grid with draggable event indicators
+ * Supports long-press drag for multi-day event creation
  */
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
   Dimensions,
+  LayoutChangeEvent,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Event } from '../../lib/api/types';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import DraggableMonthEvent from './DraggableMonthEvent';
@@ -19,6 +24,13 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CELL_SIZE = SCREEN_WIDTH / DAYS_IN_WEEK;
 
+// Multi-day selection state
+interface MultiDaySelection {
+  startDate: Date;
+  endDate: Date;
+  isSelecting: boolean;
+}
+
 interface MonthViewProps {
   date: Date;
   events: Event[];
@@ -26,6 +38,7 @@ interface MonthViewProps {
   onEventPress?: (event: Event) => void;
   onCreateEvent?: (date: Date) => void;
   onEventMove?: (event: Event, newDate: Date) => void;
+  onMultiDayCreate?: (startDate: Date, endDate: Date) => void;
 }
 
 export default function MonthView({
@@ -35,9 +48,20 @@ export default function MonthView({
   onEventPress,
   onCreateEvent,
   onEventMove,
+  onMultiDayCreate,
 }: MonthViewProps) {
   const { tokens } = useTheme();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
+
+  // Multi-day selection state
+  const [selection, setSelection] = useState<MultiDaySelection | null>(null);
+  const [gridLayout, setGridLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
+
+  // Handle grid layout
+  const handleGridLayout = useCallback((event: LayoutChangeEvent) => {
+    const { x, y, width, height } = event.nativeEvent.layout;
+    setGridLayout({ x, y, width, height });
+  }, []);
 
   // Get calendar grid data
   const calendarDays = useMemo(() => {
@@ -146,6 +170,106 @@ export default function MonthView({
     return result;
   }, [calendarDays]);
 
+  // Calculate row height (6 weeks in grid)
+  const rowHeight = useMemo(() => {
+    return gridLayout.height / 6;
+  }, [gridLayout.height]);
+
+  // Get date from touch coordinates
+  const getDateFromPosition = useCallback((x: number, y: number): Date | null => {
+    if (gridLayout.width === 0 || gridLayout.height === 0) return null;
+
+    const col = Math.floor(x / CELL_SIZE);
+    const row = Math.floor(y / rowHeight);
+
+    if (col < 0 || col >= DAYS_IN_WEEK || row < 0 || row >= 6) return null;
+
+    const dayIndex = row * DAYS_IN_WEEK + col;
+    if (dayIndex >= 0 && dayIndex < calendarDays.length) {
+      return calendarDays[dayIndex].date;
+    }
+    return null;
+  }, [gridLayout, rowHeight, calendarDays]);
+
+  // Check if a date is in the selection range
+  const isDateInSelection = useCallback((targetDate: Date): boolean => {
+    if (!selection) return false;
+
+    const target = targetDate.getTime();
+    const start = Math.min(selection.startDate.getTime(), selection.endDate.getTime());
+    const end = Math.max(selection.startDate.getTime(), selection.endDate.getTime());
+
+    return target >= start && target <= end;
+  }, [selection]);
+
+  // Calculate selection span in days
+  const selectionDaySpan = useMemo(() => {
+    if (!selection) return 0;
+    const start = Math.min(selection.startDate.getTime(), selection.endDate.getTime());
+    const end = Math.max(selection.startDate.getTime(), selection.endDate.getTime());
+    return Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1;
+  }, [selection]);
+
+  // Long press gesture for multi-day selection
+  const longPressGesture = useMemo(() =>
+    Gesture.LongPress()
+      .minDuration(500)
+      .onStart((event) => {
+        const targetDate = getDateFromPosition(event.x, event.y);
+        if (targetDate) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setSelection({
+            startDate: targetDate,
+            endDate: targetDate,
+            isSelecting: true,
+          });
+        }
+      }),
+    [getDateFromPosition]
+  );
+
+  // Pan gesture for extending selection
+  const panGesture = useMemo(() =>
+    Gesture.Pan()
+      .activateAfterLongPress(500)
+      .onUpdate((event) => {
+        if (!selection?.isSelecting) return;
+
+        const targetDate = getDateFromPosition(event.x, event.y);
+        if (targetDate && targetDate.getTime() !== selection.endDate.getTime()) {
+          // Limit selection to 14 days
+          const daysDiff = Math.abs(
+            Math.round((targetDate.getTime() - selection.startDate.getTime()) / (24 * 60 * 60 * 1000))
+          );
+          if (daysDiff <= 14) {
+            Haptics.selectionAsync();
+            setSelection(prev => prev ? { ...prev, endDate: targetDate } : null);
+          }
+        }
+      })
+      .onEnd(() => {
+        if (selection?.isSelecting && onMultiDayCreate) {
+          const start = new Date(Math.min(selection.startDate.getTime(), selection.endDate.getTime()));
+          const end = new Date(Math.max(selection.startDate.getTime(), selection.endDate.getTime()));
+
+          // Set default times (9 AM start, 10 AM end for all-day events or multi-day)
+          start.setHours(9, 0, 0, 0);
+          end.setHours(10, 0, 0, 0);
+
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          onMultiDayCreate(start, end);
+        }
+        setSelection(null);
+      }),
+    [selection, getDateFromPosition, onMultiDayCreate]
+  );
+
+  // Compose gestures
+  const composedGesture = useMemo(() =>
+    Gesture.Simultaneous(longPressGesture, panGesture),
+    [longPressGesture, panGesture]
+  );
+
   return (
     <View style={styles.container}>
       {/* Day name headers */}
@@ -157,24 +281,38 @@ export default function MonthView({
         ))}
       </View>
 
-      {/* Calendar grid */}
-      <View style={styles.grid}>
-        {weeks.map((week, weekIndex) => (
-          <View key={weekIndex} style={styles.week}>
-            {week.map((day, dayIndex) => {
-              const dayEvents = getEventsForDate(day.date);
-              const hasEvents = dayEvents.length > 0;
+      {/* Calendar grid with gesture detection */}
+      <GestureDetector gesture={composedGesture}>
+        <Animated.View style={styles.grid} onLayout={handleGridLayout}>
+          {/* Selection indicator overlay */}
+          {selection && (
+            <View style={styles.selectionOverlay} pointerEvents="none">
+              <View style={styles.selectionBadge}>
+                <Text style={styles.selectionText}>
+                  {selectionDaySpan} {selectionDaySpan === 1 ? 'day' : 'days'}
+                </Text>
+              </View>
+            </View>
+          )}
 
-              return (
-                <TouchableOpacity
-                  key={dayIndex}
-                  style={[
-                    styles.dayCell,
-                    day.isToday && styles.todayCell,
-                  ]}
-                  onPress={() => onDayPress?.(day.date)}
-                  activeOpacity={0.7}
-                >
+          {weeks.map((week, weekIndex) => (
+            <View key={weekIndex} style={styles.week}>
+              {week.map((day, dayIndex) => {
+                const dayEvents = getEventsForDate(day.date);
+                const hasEvents = dayEvents.length > 0;
+                const isSelected = isDateInSelection(day.date);
+
+                return (
+                  <TouchableOpacity
+                    key={dayIndex}
+                    style={[
+                      styles.dayCell,
+                      day.isToday && styles.todayCell,
+                      isSelected && styles.selectedCell,
+                    ]}
+                    onPress={() => onDayPress?.(day.date)}
+                    activeOpacity={0.7}
+                  >
                   <View style={styles.dayHeader}>
                     <View
                       style={[
@@ -256,7 +394,8 @@ export default function MonthView({
             })}
           </View>
         ))}
-      </View>
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 }
@@ -300,6 +439,30 @@ const createStyles = (tokens: ThemeTokens) =>
     },
     todayCell: {
       backgroundColor: tokens.accent + '10',
+    },
+    selectedCell: {
+      backgroundColor: tokens.accent + '30',
+      borderColor: tokens.accent,
+    },
+    selectionOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 100,
+      alignItems: 'center',
+      paddingTop: 4,
+    },
+    selectionBadge: {
+      backgroundColor: tokens.accent,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    selectionText: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '600',
     },
     dayHeader: {
       flexDirection: 'row',

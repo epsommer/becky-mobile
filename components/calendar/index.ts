@@ -10,3 +10,12 @@ export { default as EventModal } from './EventModal';
 export { default as QuickEntrySheet } from './QuickEntrySheet';
 export { default as LocationAutocomplete } from './LocationAutocomplete';
 export { default as DraggableMonthEvent } from './DraggableMonthEvent';
+export { default as PlaceholderContainer } from './PlaceholderContainer';
+
+// Bottom sheet and action components
+export { default as ActionBottomSheet } from './ActionBottomSheet';
+export type { ActionBottomSheetRef } from './ActionBottomSheet';
+export { default as YearCalendarMini } from './YearCalendarMini';
+
+// Gesture utilities and hooks
+export * from './gestures';

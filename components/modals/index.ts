@@ -7,3 +7,16 @@ export { default as ParticipantConfirmationModal } from './ParticipantConfirmati
 export { default as TimeTrackerModal } from './TimeTrackerModal';
 export { default as DeleteConfirmationModal, showDeleteConfirmation } from './DeleteConfirmationModal';
 export type { DeleteConfirmationModalProps } from './DeleteConfirmationModal';
+
+// Base modal components
+export { default as BaseConfirmationModal } from './BaseConfirmationModal';
+export type { BaseConfirmationModalProps } from './BaseConfirmationModal';
+export { default as RadioOptionList } from './RadioOptionList';
+export type { RadioOption } from './RadioOptionList';
+
+// Recurring event modals
+export { default as EditRecurringEventModal } from './EditRecurringEventModal';
+export type { RecurringEditOption } from './EditRecurringEventModal';
+
+// Multiday event modals
+export { default as MultidayConflictModal } from './MultidayConflictModal';

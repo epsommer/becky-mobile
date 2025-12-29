@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, Modal, Pressable, ActivityIndicator, Animated } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SplashScreen from "expo-splash-screen";
 import AccountSettingsPanel from "./components/AccountSettingsPanel";
 import ActivityLogPanel from "./components/ActivityLogPanel";
@@ -79,11 +80,13 @@ export default function App() {
 
   try {
     return (
-      <ThemeProvider>
-        <AuthProvider>
-          <AuthGate />
-        </AuthProvider>
-      </ThemeProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <ThemeProvider>
+          <AuthProvider>
+            <AuthGate />
+          </AuthProvider>
+        </ThemeProvider>
+      </GestureHandlerRootView>
     );
   } catch (error) {
     console.error('[App] Error rendering app:', error);
@@ -277,6 +280,10 @@ function ThemedApp() {
           onBatchAction={(selectedIds) => {
             console.log('[ThemedApp] Batch action with:', selectedIds.length, 'contacts');
             // TODO: Implement batch create clients
+          }}
+          onViewClientDetail={(clientId) => {
+            setShowContactsList(false);
+            handleViewClientDetail(clientId);
           }}
         />
       );

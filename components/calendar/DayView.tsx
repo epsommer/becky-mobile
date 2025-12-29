@@ -1,6 +1,7 @@
 /**
  * DayView - Daily calendar view with hour slots and drag-drop events
  * Includes conflict highlighting during drag operations
+ * Supports long-press drag-to-create for new events
  */
 import React, { useMemo, useState, useCallback, useRef } from 'react';
 import {
@@ -10,12 +11,17 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  LayoutChangeEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 import { Event } from '../../lib/api/types';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import EventBlock, { PIXELS_PER_HOUR } from './EventBlock';
 import { getConflictingEvents } from '../../utils/eventConflicts';
+import PlaceholderContainer from './PlaceholderContainer';
+import { useDragToCreate, DragState, minutesToPixels, timeToY } from './gestures';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const WORKING_HOURS_START = 6;
@@ -27,6 +33,7 @@ interface DayViewProps {
   onEventPress?: (event: Event) => void;
   onTimeSlotPress?: (date: Date, hour: number) => void;
   onEventUpdate?: (event: Event, newStart: string, newEnd: string) => void;
+  onEventCreate?: (startDate: Date, endDate: Date) => void;
 }
 
 export default function DayView({
@@ -35,6 +42,7 @@ export default function DayView({
   onEventPress,
   onTimeSlotPress,
   onEventUpdate,
+  onEventCreate,
 }: DayViewProps) {
   const { tokens } = useTheme();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
@@ -46,8 +54,62 @@ export default function DayView({
   const [resizeHandle, setResizeHandle] = useState<'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null>(null);
   const [resizeOffset, setResizeOffset] = useState(0);
 
-  // Disable scroll when dragging/resizing
-  const isInteracting = draggingEvent !== null || resizingEvent !== null;
+  // Track grid layout for gesture calculations
+  const [gridTop, setGridTop] = useState(0);
+
+  // Handle grid layout
+  const handleGridLayout = useCallback((event: LayoutChangeEvent) => {
+    setGridTop(event.nativeEvent.layout.y);
+  }, []);
+
+  // Drag-to-create hook handlers
+  const handleCreateDragStart = useCallback((state: DragState) => {
+    console.log('[DayView] Drag-to-create started:', state);
+  }, []);
+
+  const handleCreateDragUpdate = useCallback((state: DragState) => {
+    // Placeholder updates automatically via dragState
+  }, []);
+
+  const handleCreateDragEnd = useCallback((state: DragState) => {
+    console.log('[DayView] Drag-to-create ended:', state);
+    if (onEventCreate) {
+      const startDate = new Date(state.startDate);
+      startDate.setHours(state.startHour, state.startMinutes, 0, 0);
+
+      const endDate = new Date(state.endDate);
+      endDate.setHours(state.endHour, state.endMinutes, 0, 0);
+
+      onEventCreate(startDate, endDate);
+    }
+  }, [onEventCreate]);
+
+  const handleCreateDragCancel = useCallback(() => {
+    console.log('[DayView] Drag-to-create cancelled');
+  }, []);
+
+  const { composedGesture, dragState, isDragging: isCreating, cancelDrag } = useDragToCreate({
+    viewType: 'day',
+    pixelsPerHour: PIXELS_PER_HOUR,
+    gridTop,
+    startDate: date,
+    onDragStart: handleCreateDragStart,
+    onDragUpdate: handleCreateDragUpdate,
+    onDragEnd: handleCreateDragEnd,
+    onDragCancel: handleCreateDragCancel,
+    enabled: !draggingEvent && !resizingEvent,
+  });
+
+  // Calculate placeholder position from drag state
+  const placeholderPosition = useMemo(() => {
+    if (!dragState) return null;
+    const top = (dragState.startHour + dragState.startMinutes / 60) * PIXELS_PER_HOUR;
+    const height = minutesToPixels(dragState.durationMinutes, PIXELS_PER_HOUR);
+    return { top, height };
+  }, [dragState]);
+
+  // Disable scroll when dragging/resizing/creating
+  const isInteracting = draggingEvent !== null || resizingEvent !== null || isCreating;
 
   // Calculate conflict zones during drag/resize
   const conflictZones = useMemo(() => {
@@ -142,20 +204,20 @@ export default function DayView({
     };
   }, []);
 
-  // Handle drag start
-  const handleDragStart = useCallback((event: Event) => {
+  // Handle event drag start
+  const handleEventDragStart = useCallback((event: Event) => {
     console.log('[DayView] Drag start:', event.title);
     setDraggingEvent(event);
     setDragOffset(0);
   }, []);
 
-  // Handle drag move
-  const handleDragMove = useCallback((dy: number) => {
+  // Handle event drag move
+  const handleEventDragMove = useCallback((dy: number) => {
     setDragOffset(dy);
   }, []);
 
-  // Handle drag end
-  const handleDragEnd = useCallback((dy: number) => {
+  // Handle event drag end
+  const handleEventDragEnd = useCallback((dy: number) => {
     console.log('[DayView] Drag end called, dy:', dy, 'draggingEvent:', draggingEvent?.title);
     if (!draggingEvent) {
       console.log('[DayView] No dragging event, returning');
@@ -329,104 +391,128 @@ export default function DayView({
         </View>
       </View>
 
-      {/* Time grid */}
+      {/* Time grid with gesture detection */}
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!isInteracting}
       >
-        <View style={styles.timeGrid}>
-          {/* Hour rows */}
-          {HOURS.map((hour) => (
-            <TouchableOpacity
-              key={hour}
-              style={styles.hourRow}
-              onPress={() => onTimeSlotPress?.(date, hour)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.hourLabel}>
-                <Text style={styles.hourText}>{formatHour(hour)}</Text>
+        <GestureDetector gesture={composedGesture}>
+          <Animated.View style={styles.timeGrid} onLayout={handleGridLayout}>
+            {/* Hour rows */}
+            {HOURS.map((hour) => (
+              <TouchableOpacity
+                key={hour}
+                style={styles.hourRow}
+                onPress={() => onTimeSlotPress?.(date, hour)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.hourLabel}>
+                  <Text style={styles.hourText}>{formatHour(hour)}</Text>
+                </View>
+                <View style={styles.hourSlot}>
+                  <View style={styles.hourLine} />
+                  <View style={styles.halfHourLine} />
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            {/* Current time indicator */}
+            {currentHourPosition !== null && (
+              <View style={[styles.currentTimeIndicator, { top: currentHourPosition }]}>
+                <View style={styles.currentTimeDot} />
+                <View style={styles.currentTimeLine} />
               </View>
-              <View style={styles.hourSlot}>
-                <View style={styles.hourLine} />
-                <View style={styles.halfHourLine} />
+            )}
+
+            {/* Conflict zone highlights - shown during drag/resize */}
+            {conflictZones.map((zone) => (
+              <View
+                key={`conflict-${zone.id}`}
+                style={[
+                  styles.conflictZone,
+                  {
+                    top: zone.top,
+                    height: zone.height,
+                  },
+                ]}
+                pointerEvents="none"
+              >
+                <View style={styles.conflictZoneInner}>
+                  <Ionicons name="warning-outline" size={16} color="#ef4444" />
+                </View>
               </View>
-            </TouchableOpacity>
-          ))}
+            ))}
 
-          {/* Current time indicator */}
-          {currentHourPosition !== null && (
-            <View style={[styles.currentTimeIndicator, { top: currentHourPosition }]}>
-              <View style={styles.currentTimeDot} />
-              <View style={styles.currentTimeLine} />
-            </View>
-          )}
-
-          {/* Conflict zone highlights - shown during drag/resize */}
-          {conflictZones.map((zone) => (
-            <View
-              key={`conflict-${zone.id}`}
-              style={[
-                styles.conflictZone,
-                {
-                  top: zone.top,
-                  height: zone.height,
-                },
-              ]}
-              pointerEvents="none"
-            >
-              <View style={styles.conflictZoneInner}>
-                <Ionicons name="warning-outline" size={16} color="#ef4444" />
-              </View>
-            </View>
-          ))}
-
-          {/* Events */}
-          {events.map((event) => {
-            const layout = getEventLayout(event);
-            const isDragging = draggingEvent?.id === event.id;
-            const isResizing = resizingEvent?.id === event.id;
-
-            // Adjust layout based on drag/resize
-            let adjustedTop = layout.top;
-            let adjustedHeight = layout.height;
-
-            if (isDragging) {
-              adjustedTop += dragOffset;
-            }
-
-            if (isResizing) {
-              // Top handles (top, top-left, top-right) adjust top and height
-              if (resizeHandle === 'top' || resizeHandle === 'top-left' || resizeHandle === 'top-right') {
-                adjustedTop += resizeOffset;
-                adjustedHeight -= resizeOffset;
-              }
-              // Bottom handles (bottom, bottom-left, bottom-right) adjust height only
-              else if (resizeHandle === 'bottom' || resizeHandle === 'bottom-left' || resizeHandle === 'bottom-right') {
-                adjustedHeight += resizeOffset;
-              }
-            }
-
-            return (
-              <EventBlock
-                key={event.id}
-                event={event}
-                topOffset={adjustedTop}
-                height={adjustedHeight}
-                isDragging={isDragging}
-                isResizing={isResizing}
-                onDragStart={handleDragStart}
-                onDragMove={handleDragMove}
-                onDragEnd={handleDragEnd}
-                onResizeStart={handleResizeStart}
-                onResizeMove={handleResizeMove}
-                onResizeEnd={handleResizeEnd}
-                onPress={onEventPress}
+            {/* Placeholder for drag-to-create */}
+            {dragState && placeholderPosition && (
+              <PlaceholderContainer
+                visible={isCreating}
+                startTime={(() => {
+                  const d = new Date(dragState.startDate);
+                  d.setHours(dragState.startHour, dragState.startMinutes, 0, 0);
+                  return d;
+                })()}
+                endTime={(() => {
+                  const d = new Date(dragState.endDate);
+                  d.setHours(dragState.endHour, dragState.endMinutes, 0, 0);
+                  return d;
+                })()}
+                onComplete={() => {}}
+                onCancel={cancelDrag}
+                viewType="day"
+                top={placeholderPosition.top}
+                height={placeholderPosition.height}
               />
-            );
-          })}
-        </View>
+            )}
+
+            {/* Events */}
+            {events.map((event) => {
+              const layout = getEventLayout(event);
+              const isDragging = draggingEvent?.id === event.id;
+              const isResizing = resizingEvent?.id === event.id;
+
+              // Adjust layout based on drag/resize
+              let adjustedTop = layout.top;
+              let adjustedHeight = layout.height;
+
+              if (isDragging) {
+                adjustedTop += dragOffset;
+              }
+
+              if (isResizing) {
+                // Top handles (top, top-left, top-right) adjust top and height
+                if (resizeHandle === 'top' || resizeHandle === 'top-left' || resizeHandle === 'top-right') {
+                  adjustedTop += resizeOffset;
+                  adjustedHeight -= resizeOffset;
+                }
+                // Bottom handles (bottom, bottom-left, bottom-right) adjust height only
+                else if (resizeHandle === 'bottom' || resizeHandle === 'bottom-left' || resizeHandle === 'bottom-right') {
+                  adjustedHeight += resizeOffset;
+                }
+              }
+
+              return (
+                <EventBlock
+                  key={event.id}
+                  event={event}
+                  topOffset={adjustedTop}
+                  height={adjustedHeight}
+                  isDragging={isDragging}
+                  isResizing={isResizing}
+                  onDragStart={handleEventDragStart}
+                  onDragMove={handleEventDragMove}
+                  onDragEnd={handleEventDragEnd}
+                  onResizeStart={handleResizeStart}
+                  onResizeMove={handleResizeMove}
+                  onResizeEnd={handleResizeEnd}
+                  onPress={onEventPress}
+                />
+              );
+            })}
+          </Animated.View>
+        </GestureDetector>
       </ScrollView>
     </View>
   );

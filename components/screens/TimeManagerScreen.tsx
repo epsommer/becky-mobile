@@ -1,7 +1,14 @@
 /**
  * TimeManagerScreen - Calendar with day/week/month views and drag-drop events
+ *
+ * Features:
+ * - Day/Week/Month/Year calendar views
+ * - Event drag-and-drop and resize
+ * - Action bottom sheet with year calendar overview
+ * - Quick entry and FAB menu
+ * - Recurring event handling
  */
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,18 +18,33 @@ import {
   Modal,
   Platform,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import { CalendarProvider, useCalendar, CalendarView } from '../../context/CalendarContext';
-import { DayView, WeekView, MonthView, YearView, EventModal, QuickEntrySheet } from '../calendar';
+import {
+  DayView,
+  WeekView,
+  MonthView,
+  YearView,
+  EventModal,
+  QuickEntrySheet,
+  ActionBottomSheet,
+  ActionBottomSheetRef,
+} from '../calendar';
 import ParticipantConfirmationModal from '../modals/ParticipantConfirmationModal';
 import RecurringDeleteModal from '../modals/RecurringDeleteModal';
+import { EditRecurringEventModal } from '../modals';
 import { Event, CreateEventData } from '../../lib/api/types';
+import { useRecurringEventActions } from '../../hooks/useRecurringEventActions';
 
 function CalendarContent() {
   const { tokens } = useTheme();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
+
+  // Bottom sheet ref
+  const actionBottomSheetRef = useRef<ActionBottomSheetRef>(null);
 
   const {
     selectedDate,
@@ -37,6 +59,7 @@ function CalendarContent() {
     createEvent,
     updateEvent,
     deleteEvent,
+    fetchEvents,
     participantConfirmation,
     confirmParticipantUpdate,
     cancelParticipantUpdate,
@@ -46,6 +69,20 @@ function CalendarContent() {
     confirmRecurringDelete,
     cancelRecurringDelete,
   } = useCalendar();
+
+  // Recurring event edit actions
+  const {
+    editState: recurringEditState,
+    showEditModal: showRecurringEditModal,
+    handleEditChoice,
+    cancelEdit: cancelRecurringEdit,
+  } = useRecurringEventActions({
+    events,
+    onEditComplete: () => {
+      // Refresh events after edit
+      fetchEvents();
+    },
+  });
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -197,6 +234,37 @@ function CalendarContent() {
 
   const handleOpenQuickEntry = useCallback(() => {
     setFabMenuVisible(false);
+    setQuickEntryVisible(true);
+  }, []);
+
+  // Handlers for ActionBottomSheet
+  const handleBottomSheetDateSelect = useCallback((date: Date) => {
+    setSelectedDate(date);
+    // Switch to month view when selecting from year calendar
+    if (currentView === 'year') {
+      setCurrentView('month');
+    }
+  }, [currentView, setSelectedDate, setCurrentView]);
+
+  const handleBottomSheetCreateEvent = useCallback(() => {
+    setNewEntryType('event');
+    setSelectedEvent(null);
+    setInitialDate(selectedDate);
+    setInitialHour(new Date().getHours());
+    setModalVisible(true);
+  }, [selectedDate]);
+
+  const handleBottomSheetCreateClientAppointment = useCallback(() => {
+    // Create event with intent to add client
+    setNewEntryType('event');
+    setSelectedEvent(null);
+    setInitialDate(selectedDate);
+    setInitialHour(new Date().getHours());
+    setModalVisible(true);
+    // The EventModal already has client selection built-in
+  }, [selectedDate]);
+
+  const handleBottomSheetQuickEntry = useCallback(() => {
     setQuickEntryVisible(true);
   }, []);
 
@@ -478,15 +546,40 @@ function CalendarContent() {
         onConfirm={confirmRecurringDelete}
         onCancel={cancelRecurringDelete}
       />
+
+      {/* Recurring Edit Modal */}
+      <EditRecurringEventModal
+        visible={recurringEditState.visible}
+        event={recurringEditState.event}
+        relatedEvents={recurringEditState.relatedEvents}
+        onConfirm={handleEditChoice}
+        onCancel={cancelRecurringEdit}
+      />
+
+      {/* Action Bottom Sheet */}
+      <ActionBottomSheet
+        ref={actionBottomSheetRef}
+        selectedDate={selectedDate}
+        currentView={currentView}
+        events={events}
+        onDateSelect={handleBottomSheetDateSelect}
+        onViewChange={setCurrentView}
+        onCreateEvent={handleBottomSheetCreateEvent}
+        onCreateClientAppointment={handleBottomSheetCreateClientAppointment}
+        onOpenQuickEntry={handleBottomSheetQuickEntry}
+        onGoToToday={goToToday}
+      />
     </SafeAreaView>
   );
 }
 
 export default function TimeManagerScreen() {
   return (
-    <CalendarProvider>
-      <CalendarContent />
-    </CalendarProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <CalendarProvider>
+        <CalendarContent />
+      </CalendarProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -583,10 +676,13 @@ const createStyles = (tokens: ThemeTokens) =>
     },
     calendarContainer: {
       flex: 1,
+      // Add padding at bottom to account for the action bottom sheet handle
+      paddingBottom: 60,
     },
     fabContainer: {
       position: 'absolute',
-      bottom: 24,
+      // Position FAB above the bottom sheet collapsed handle
+      bottom: 80,
       right: 24,
       alignItems: 'flex-end',
       zIndex: 100,
