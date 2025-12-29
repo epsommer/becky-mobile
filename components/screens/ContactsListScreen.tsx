@@ -1,5 +1,16 @@
 "use client";
 
+/**
+ * ContactsListScreen - Screen for viewing and managing synced device contacts
+ *
+ * Features:
+ * - Display synced device contacts with search and filtering
+ * - Per-contact action buttons (Create Client, SMS, View Info)
+ * - Batch selection for creating multiple clients
+ * - Integration with BatchClientCreationModal and ContactInfoModal
+ * - Pull-to-refresh functionality
+ * - Themed styling matching app design system
+ */
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
@@ -13,32 +24,56 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  RefreshControl,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { useTheme, ThemeTokens } from "../../theme/ThemeContext";
 
 // Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import { database } from "../../lib/database";
 import { LocalContact } from "../../lib/database/models/LocalContact";
 import { Q } from "@nozbe/watermelondb";
 
+// Import modals
+import ContactInfoModal from "../modals/ContactInfoModal";
+import BatchClientCreationModal from "../modals/BatchClientCreationModal";
+import { useContactActions, BatchCreationResult } from "../../hooks/useContactActions";
+
 interface ContactsListScreenProps {
   onBack: () => void;
   onBatchAction?: (selectedIds: string[]) => void;
+  onViewClientDetail?: (clientId: string) => void;
 }
 
-export default function ContactsListScreen({ onBack, onBatchAction }: ContactsListScreenProps) {
+export default function ContactsListScreen({
+  onBack,
+  onBatchAction,
+  onViewClientDetail,
+}: ContactsListScreenProps) {
   const { tokens } = useTheme();
   const styles = React.useMemo(() => createStyles(tokens), [tokens]);
 
+  // Contact actions hook
+  const { openSMS, canOpenSMS } = useContactActions();
+
+  // State
   const [contacts, setContacts] = useState<LocalContact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+
+  // Modal states
+  const [contactInfoModalVisible, setContactInfoModalVisible] = useState(false);
+  const [selectedContactForInfo, setSelectedContactForInfo] = useState<LocalContact | null>(null);
+  const [batchModalVisible, setBatchModalVisible] = useState(false);
+  const [contactsForBatch, setContactsForBatch] = useState<LocalContact[]>([]);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -46,7 +81,9 @@ export default function ContactsListScreen({ onBack, onBatchAction }: ContactsLi
 
   // Load contacts from database
   const loadContacts = useCallback(async () => {
-    setLoading(true);
+    if (!refreshing) {
+      setLoading(true);
+    }
     try {
       let query = database.get<LocalContact>("local_contacts").query();
 
@@ -72,10 +109,17 @@ export default function ContactsListScreen({ onBack, onBatchAction }: ContactsLi
       console.error("[ContactsListScreen] Error loading contacts:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, refreshing]);
 
   useEffect(() => {
+    loadContacts();
+  }, [loadContacts]);
+
+  // Pull to refresh handler
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
     loadContacts();
   }, [loadContacts]);
 
@@ -98,8 +142,9 @@ export default function ContactsListScreen({ onBack, onBatchAction }: ContactsLi
   }, [loading, contacts, fadeAnim, slideAnim]);
 
   // Toggle contact selection with animation
-  const toggleSelection = (contactId: string) => {
+  const toggleSelection = useCallback((contactId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    Haptics.selectionAsync();
     setSelectedIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(contactId)) {
@@ -109,23 +154,157 @@ export default function ContactsListScreen({ onBack, onBatchAction }: ContactsLi
       }
       return newSet;
     });
-  };
+  }, []);
 
   // Toggle select all
-  const toggleSelectAll = () => {
+  const toggleSelectAll = useCallback(() => {
+    Haptics.selectionAsync();
     if (selectAll) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(contacts.map((c) => c.id)));
     }
     setSelectAll(!selectAll);
-  };
+  }, [selectAll, contacts]);
 
-  // Handle batch action
-  const handleBatchAction = () => {
-    if (onBatchAction && selectedIds.size > 0) {
-      onBatchAction(Array.from(selectedIds));
+  // Handle batch action - open batch creation modal
+  const handleBatchAction = useCallback(() => {
+    if (selectedIds.size > 0) {
+      const selectedContacts = contacts.filter((c) => selectedIds.has(c.id));
+      setContactsForBatch(selectedContacts);
+      setBatchModalVisible(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
+  }, [selectedIds, contacts]);
+
+  // Handle single contact create client action
+  const handleCreateClient = useCallback((contact: LocalContact) => {
+    setContactsForBatch([contact]);
+    setBatchModalVisible(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  // Handle SMS action
+  const handleSMS = useCallback(
+    async (contact: LocalContact) => {
+      if (contact.phone) {
+        await openSMS(contact.phone);
+      } else {
+        Alert.alert(
+          "No Phone Number",
+          "This contact does not have a phone number to send SMS."
+        );
+      }
+    },
+    [openSMS]
+  );
+
+  // Handle view contact info action
+  const handleViewInfo = useCallback((contact: LocalContact) => {
+    setSelectedContactForInfo(contact);
+    setContactInfoModalVisible(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  // Handle batch creation success
+  const handleBatchSuccess = useCallback(
+    (result: BatchCreationResult) => {
+      // Clear selection
+      setSelectedIds(new Set());
+      setSelectAll(false);
+
+      // Show success message
+      if (result.successCount > 0) {
+        Alert.alert(
+          "Clients Created",
+          `Successfully created ${result.successCount} client${result.successCount !== 1 ? "s" : ""}.${
+            result.failedCount > 0
+              ? ` ${result.failedCount} failed.`
+              : ""
+          }`
+        );
+      }
+
+      // Refresh contacts to update sync status
+      loadContacts();
+
+      // Legacy callback for external handling
+      if (onBatchAction && result.createdClients.length > 0) {
+        onBatchAction(result.createdClients.map((c) => c.client.id));
+      }
+    },
+    [loadContacts, onBatchAction]
+  );
+
+  // Handle create client from contact info modal
+  const handleCreateClientFromInfo = useCallback(
+    (contact: LocalContact) => {
+      setContactInfoModalVisible(false);
+      // Small delay to let modal close
+      setTimeout(() => {
+        handleCreateClient(contact);
+      }, 300);
+    },
+    [handleCreateClient]
+  );
+
+  // Render action buttons for a contact
+  const renderActionButtons = (item: LocalContact) => {
+    const hasPhone = canOpenSMS(item.phone);
+
+    return (
+      <View style={styles.actionButtons}>
+        {/* Create Client button - hidden if already synced */}
+        {!item.isMatched && (
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: tokens.accent + "20" }]}
+            onPress={() => handleCreateClient(item)}
+            activeOpacity={0.7}
+            accessibilityLabel="Create client from this contact"
+            accessibilityRole="button"
+          >
+            <Ionicons name="person-add" size={16} color={tokens.accent} />
+          </TouchableOpacity>
+        )}
+
+        {/* SMS button */}
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            {
+              backgroundColor: hasPhone ? tokens.surface : tokens.muted + "20",
+              borderWidth: 1,
+              borderColor: hasPhone ? tokens.border : tokens.muted + "40",
+            },
+          ]}
+          onPress={() => handleSMS(item)}
+          disabled={!hasPhone}
+          activeOpacity={0.7}
+          accessibilityLabel={hasPhone ? "Send SMS to this contact" : "No phone number available"}
+          accessibilityRole="button"
+        >
+          <Ionicons
+            name="chatbubble"
+            size={16}
+            color={hasPhone ? tokens.textSecondary : tokens.muted}
+          />
+        </TouchableOpacity>
+
+        {/* View Info button */}
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            { backgroundColor: tokens.surface, borderWidth: 1, borderColor: tokens.border },
+          ]}
+          onPress={() => handleViewInfo(item)}
+          activeOpacity={0.7}
+          accessibilityLabel="View contact details"
+          accessibilityRole="button"
+        >
+          <Ionicons name="information-circle" size={18} color={tokens.textSecondary} />
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   // Render contact item
@@ -133,63 +312,70 @@ export default function ContactsListScreen({ onBack, onBatchAction }: ContactsLi
     const isSelected = selectedIds.has(item.id);
 
     return (
-      <TouchableOpacity
+      <View
         style={[
           styles.contactItem,
           isSelected && { backgroundColor: tokens.accent + "20" },
         ]}
-        onPress={() => toggleSelection(item.id)}
-        activeOpacity={0.7}
       >
         {/* Selection checkbox */}
-        <View
-          style={[
-            styles.checkbox,
-            {
-              borderColor: isSelected ? tokens.accent : tokens.border,
-              backgroundColor: isSelected ? tokens.accent : "transparent",
-            },
-          ]}
+        <TouchableOpacity
+          style={styles.checkboxTouchable}
+          onPress={() => toggleSelection(item.id)}
+          activeOpacity={0.7}
+          accessibilityLabel={isSelected ? "Deselect contact" : "Select contact"}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: isSelected }}
         >
-          {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
-        </View>
+          <View
+            style={[
+              styles.checkbox,
+              {
+                borderColor: isSelected ? tokens.accent : tokens.border,
+                backgroundColor: isSelected ? tokens.accent : "transparent",
+              },
+            ]}
+          >
+            {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+          </View>
+        </TouchableOpacity>
 
         {/* Contact info */}
-        <View style={styles.contactInfo}>
-          <Text style={[styles.contactName, { color: tokens.textPrimary }]}>
-            {item.displayName}
-          </Text>
+        <TouchableOpacity
+          style={styles.contactInfo}
+          onPress={() => handleViewInfo(item)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.contactNameRow}>
+            <Text style={[styles.contactName, { color: tokens.textPrimary }]} numberOfLines={1}>
+              {item.displayName}
+            </Text>
+            {item.isMatched && (
+              <View style={[styles.syncedBadgeInline, { backgroundColor: tokens.accent + "30" }]}>
+                <Ionicons name="checkmark" size={10} color={tokens.accent} />
+              </View>
+            )}
+          </View>
           {item.phone && (
-            <Text style={[styles.contactDetail, { color: tokens.textSecondary }]}>
+            <Text style={[styles.contactDetail, { color: tokens.textSecondary }]} numberOfLines={1}>
               {item.phone}
             </Text>
           )}
           {item.email && (
-            <Text style={[styles.contactDetail, { color: tokens.textSecondary }]}>
+            <Text style={[styles.contactDetail, { color: tokens.textSecondary }]} numberOfLines={1}>
               {item.email}
             </Text>
           )}
           {item.company && (
-            <Text style={[styles.contactDetail, { color: tokens.muted }]}>
+            <Text style={[styles.contactDetail, { color: tokens.muted }]} numberOfLines={1}>
               {item.company}
             </Text>
           )}
-        </View>
+        </TouchableOpacity>
 
-        {/* Synced indicator */}
-        <View style={styles.syncStatus}>
-          {item.isMatched ? (
-            <View style={[styles.syncedBadge, { backgroundColor: tokens.accent + "30" }]}>
-              <Ionicons name="checkmark" size={12} color={tokens.accent} />
-              <Text style={{ color: tokens.accent, fontSize: 12, marginLeft: 4 }}>Synced</Text>
-            </View>
-          ) : (
-            <View style={[styles.unsyncedBadge, { backgroundColor: tokens.muted + "30" }]}>
-              <Text style={{ color: tokens.muted, fontSize: 12 }}>Not synced</Text>
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
+        {/* Action buttons */}
+        {renderActionButtons(item)}
+      </View>
     );
   };
 
@@ -211,13 +397,13 @@ export default function ContactsListScreen({ onBack, onBatchAction }: ContactsLi
       </View>
 
       {/* Stats bar */}
-      <View style={[styles.statsBar, { backgroundColor: tokens.surface, borderColor: tokens.border }]}>
+      <View
+        style={[styles.statsBar, { backgroundColor: tokens.surface, borderColor: tokens.border }]}
+      >
         <Text style={[styles.statText, { color: tokens.textSecondary }]}>
           {contacts.length} total
         </Text>
-        <Text style={[styles.statText, { color: tokens.accent }]}>
-          {syncedCount} synced
-        </Text>
+        <Text style={[styles.statText, { color: tokens.accent }]}>{syncedCount} synced</Text>
         <Text style={[styles.statText, { color: tokens.muted }]}>
           {unsyncedCount} not synced
         </Text>
@@ -229,19 +415,34 @@ export default function ContactsListScreen({ onBack, onBatchAction }: ContactsLi
           <Text style={[styles.batchText, { color: tokens.background }]}>
             {selectedIds.size} selected
           </Text>
-          <TouchableOpacity
-            style={[styles.batchButton, { backgroundColor: tokens.background }]}
-            onPress={handleBatchAction}
-          >
-            <Text style={[styles.batchButtonText, { color: tokens.accent }]}>
-              Create Clients
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.batchActions}>
+            <TouchableOpacity
+              style={[styles.batchClearButton, { borderColor: tokens.background }]}
+              onPress={() => {
+                setSelectedIds(new Set());
+                setSelectAll(false);
+              }}
+            >
+              <Text style={[styles.batchClearText, { color: tokens.background }]}>Clear</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.batchButton, { backgroundColor: tokens.background }]}
+              onPress={handleBatchAction}
+            >
+              <Ionicons name="people" size={14} color={tokens.accent} />
+              <Text style={[styles.batchButtonText, { color: tokens.accent }]}>Create Clients</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
       {/* Search */}
-      <View style={[styles.searchContainer, { backgroundColor: tokens.surface, borderColor: tokens.border }]}>
+      <View
+        style={[
+          styles.searchContainer,
+          { backgroundColor: tokens.surface, borderColor: tokens.border },
+        ]}
+      >
         <Ionicons name="search" size={16} color={tokens.textSecondary} />
         <TextInput
           style={[styles.searchInput, { color: tokens.textPrimary }]}
@@ -285,7 +486,12 @@ export default function ContactsListScreen({ onBack, onBatchAction }: ContactsLi
         </View>
       ) : contacts.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={48} color={tokens.muted} style={{ marginBottom: 16 }} />
+          <Ionicons
+            name="people-outline"
+            size={48}
+            color={tokens.muted}
+            style={{ marginBottom: 16 }}
+          />
           <Text style={[styles.emptyText, { color: tokens.textSecondary }]}>
             No contacts found
           </Text>
@@ -294,16 +500,48 @@ export default function ContactsListScreen({ onBack, onBatchAction }: ContactsLi
           </Text>
         </View>
       ) : (
-        <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+        <Animated.View
+          style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
+        >
           <FlatList
             data={contacts}
             renderItem={renderContact}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[tokens.accent]}
+                tintColor={tokens.accent}
+              />
+            }
           />
         </Animated.View>
       )}
+
+      {/* Contact Info Modal */}
+      <ContactInfoModal
+        visible={contactInfoModalVisible}
+        contact={selectedContactForInfo}
+        onClose={() => {
+          setContactInfoModalVisible(false);
+          setSelectedContactForInfo(null);
+        }}
+        onCreateClient={handleCreateClientFromInfo}
+      />
+
+      {/* Batch Client Creation Modal */}
+      <BatchClientCreationModal
+        visible={batchModalVisible}
+        contacts={contactsForBatch}
+        onClose={() => {
+          setBatchModalVisible(false);
+          setContactsForBatch([]);
+        }}
+        onSuccess={handleBatchSuccess}
+      />
     </View>
   );
 }
@@ -362,10 +600,28 @@ const createStyles = (tokens: ThemeTokens) =>
       fontSize: 14,
       fontWeight: "600",
     },
+    batchActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    batchClearButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      borderWidth: 1,
+    },
+    batchClearText: {
+      fontSize: 13,
+      fontWeight: "500",
+    },
     batchButton: {
+      flexDirection: "row",
+      alignItems: "center",
       paddingHorizontal: 16,
       paddingVertical: 8,
       borderRadius: 6,
+      gap: 6,
     },
     batchButtonText: {
       fontSize: 13,
@@ -407,9 +663,14 @@ const createStyles = (tokens: ThemeTokens) =>
       alignItems: "center",
       paddingVertical: 12,
       paddingHorizontal: 12,
-      borderRadius: 8,
+      borderRadius: 10,
       marginBottom: 8,
-      gap: 12,
+      backgroundColor: tokens.surface,
+      borderWidth: 1,
+      borderColor: tokens.border,
+    },
+    checkboxTouchable: {
+      padding: 4,
     },
     checkbox: {
       width: 24,
@@ -419,24 +680,43 @@ const createStyles = (tokens: ThemeTokens) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    checkmark: {
-      color: "#fff",
-      fontSize: 14,
-      fontWeight: "700",
-    },
     contactInfo: {
       flex: 1,
+      marginLeft: 12,
+      marginRight: 8,
+    },
+    contactNameRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
     },
     contactName: {
       fontSize: 16,
       fontWeight: "600",
       marginBottom: 2,
+      flexShrink: 1,
+    },
+    syncedBadgeInline: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      alignItems: "center",
+      justifyContent: "center",
     },
     contactDetail: {
       fontSize: 13,
     },
-    syncStatus: {
-      alignItems: "flex-end",
+    actionButtons: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    actionButton: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
     },
     syncedBadge: {
       flexDirection: "row",
