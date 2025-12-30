@@ -58,6 +58,14 @@ export default function DayView({
   // Track grid layout for gesture calculations
   const [gridTop, setGridTop] = useState(0);
 
+  // Track initial bounds when placeholder resize starts (for cumulative gesture tracking)
+  const initialPlaceholderBoundsRef = useRef<{
+    startHour: number;
+    startMinutes: number;
+    endHour: number;
+    endMinutes: number;
+  } | null>(null);
+
   // Handle grid layout
   const handleGridLayout = useCallback((event: LayoutChangeEvent) => {
     setGridTop(event.nativeEvent.layout.y);
@@ -117,24 +125,41 @@ export default function DayView({
   // Handle placeholder resize callbacks
   const handlePlaceholderResizeStart = useCallback((handle: ResizeHandleType) => {
     console.log('[DayView] Placeholder resize start:', handle);
-  }, []);
+    // Capture initial bounds when resize begins
+    if (dragState) {
+      initialPlaceholderBoundsRef.current = {
+        startHour: dragState.startHour,
+        startMinutes: dragState.startMinutes,
+        endHour: dragState.endHour,
+        endMinutes: dragState.endMinutes,
+      };
+      console.log('[DayView] Captured initial bounds:', initialPlaceholderBoundsRef.current);
+    }
+  }, [dragState]);
 
   const handlePlaceholderResizeMove = useCallback((handle: ResizeHandleType, delta: { x: number; y: number }) => {
-    if (!dragState) return;
+    // IMPORTANT: delta.y is CUMULATIVE translation from gesture start, not incremental
+    // We must calculate new bounds from INITIAL bounds + translation, not current bounds + delta
+    if (!initialPlaceholderBoundsRef.current) return;
 
-    // Calculate new bounds based on handle and delta
-    const minutesDelta = Math.round((delta.y / PIXELS_PER_HOUR) * 60 / 15) * 15;
+    const initialBounds = initialPlaceholderBoundsRef.current;
+
+    // Convert cumulative pixel translation to minutes (NO snapping during drag for smooth tracking)
+    const minutesDelta = Math.round((delta.y / PIXELS_PER_HOUR) * 60);
 
     let newBounds: Partial<DragState> = {};
 
     switch (handle) {
       case 'top': {
-        // Adjust start time
-        const newStartMinutes = dragState.startHour * 60 + dragState.startMinutes + minutesDelta;
-        const endMinutes = dragState.endHour * 60 + dragState.endMinutes;
-        // Ensure minimum 15 min duration
-        const clampedStartMinutes = Math.min(newStartMinutes, endMinutes - 15);
+        // Calculate new start time from INITIAL bounds + cumulative translation
+        const initialStartMinutes = initialBounds.startHour * 60 + initialBounds.startMinutes;
+        const initialEndMinutes = initialBounds.endHour * 60 + initialBounds.endMinutes;
+        const newStartMinutes = initialStartMinutes + minutesDelta;
+
+        // Ensure minimum 15 min duration and clamp to valid range
+        const clampedStartMinutes = Math.min(newStartMinutes, initialEndMinutes - 15);
         const clampedStart = Math.max(0, clampedStartMinutes);
+
         newBounds = {
           startHour: Math.floor(clampedStart / 60),
           startMinutes: clampedStart % 60,
@@ -142,12 +167,15 @@ export default function DayView({
         break;
       }
       case 'bottom': {
-        // Adjust end time
-        const startMinutes = dragState.startHour * 60 + dragState.startMinutes;
-        const newEndMinutes = dragState.endHour * 60 + dragState.endMinutes + minutesDelta;
-        // Ensure minimum 15 min duration
-        const clampedEndMinutes = Math.max(newEndMinutes, startMinutes + 15);
-        const clampedEnd = Math.min(24 * 60 - 15, clampedEndMinutes);
+        // Calculate new end time from INITIAL bounds + cumulative translation
+        const initialStartMinutes = initialBounds.startHour * 60 + initialBounds.startMinutes;
+        const initialEndMinutes = initialBounds.endHour * 60 + initialBounds.endMinutes;
+        const newEndMinutes = initialEndMinutes + minutesDelta;
+
+        // Ensure minimum 15 min duration and clamp to valid range
+        const clampedEndMinutes = Math.max(newEndMinutes, initialStartMinutes + 15);
+        const clampedEnd = Math.min(24 * 60, clampedEndMinutes);
+
         newBounds = {
           endHour: Math.floor(clampedEnd / 60),
           endMinutes: clampedEnd % 60,
@@ -162,11 +190,37 @@ export default function DayView({
     if (Object.keys(newBounds).length > 0) {
       updatePlaceholderBounds(newBounds);
     }
-  }, [dragState, updatePlaceholderBounds]);
+  }, [updatePlaceholderBounds]);
 
   const handlePlaceholderResizeEnd = useCallback((handle: ResizeHandleType) => {
     console.log('[DayView] Placeholder resize end:', handle);
-  }, []);
+
+    // Apply 15-minute snapping on gesture end
+    if (dragState) {
+      const currentStartMinutes = dragState.startHour * 60 + dragState.startMinutes;
+      const currentEndMinutes = dragState.endHour * 60 + dragState.endMinutes;
+
+      // Snap to nearest 15-minute increment
+      const snappedStartMinutes = Math.round(currentStartMinutes / 15) * 15;
+      const snappedEndMinutes = Math.round(currentEndMinutes / 15) * 15;
+
+      // Ensure minimum duration after snapping
+      const finalEndMinutes = Math.max(snappedEndMinutes, snappedStartMinutes + 15);
+
+      const snappedBounds = {
+        startHour: Math.floor(snappedStartMinutes / 60),
+        startMinutes: snappedStartMinutes % 60,
+        endHour: Math.floor(finalEndMinutes / 60),
+        endMinutes: finalEndMinutes % 60,
+      };
+
+      console.log('[DayView] Snapping to:', snappedBounds);
+      updatePlaceholderBounds(snappedBounds);
+    }
+
+    // Clear the initial bounds ref
+    initialPlaceholderBoundsRef.current = null;
+  }, [dragState, updatePlaceholderBounds]);
 
   // Handle confirm (checkmark button)
   const handlePlaceholderConfirm = useCallback(() => {
