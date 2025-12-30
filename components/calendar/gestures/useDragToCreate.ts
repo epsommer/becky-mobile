@@ -1,6 +1,12 @@
 /**
  * useDragToCreate - Hook for long-press + pan gesture to create calendar events
  * Handles day view, week view, and month view creation patterns
+ *
+ * Key features:
+ * - Persistent placeholder model: placeholder stays after finger lift
+ * - isEditing state: allows resize handles after creation
+ * - Fixed xToDayIndex: uses correct coordinate reference
+ * - Debounced day changes: prevents erratic multi-column spanning
  */
 import { useCallback, useRef, useState, useMemo } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
@@ -29,6 +35,7 @@ export type DragViewType = 'day' | 'week' | 'month';
 
 export interface DragState {
   isDragging: boolean;
+  isEditing: boolean;  // NEW: true after initial creation (finger lift)
   startDate: string;
   startHour: number;
   startMinutes: number;
@@ -38,6 +45,7 @@ export interface DragState {
   durationMinutes: number;
   isMultiDay: boolean;
   daySpan: number;
+  startDayIndex: number;  // NEW: for accurate column tracking
 }
 
 export interface UseDragToCreateOptions {
@@ -53,6 +61,7 @@ export interface UseDragToCreateOptions {
   onDragUpdate?: (state: DragState) => void;
   onDragEnd?: (state: DragState) => void;
   onDragCancel?: () => void;
+  onEditingStart?: (state: DragState) => void;  // NEW: called when entering edit mode
   enabled?: boolean;
 }
 
@@ -61,11 +70,15 @@ export interface UseDragToCreateResult {
   composedGesture: ReturnType<typeof Gesture.Simultaneous>;
   dragState: DragState | null;
   isDragging: boolean;
+  isEditing: boolean;  // NEW: exposed editing state
   cancelDrag: () => void;
+  confirmPlaceholder: () => void;  // NEW: confirm and trigger event creation
+  updatePlaceholderBounds: (bounds: Partial<DragState>) => void;  // NEW: for resize
 }
 
 const initialDragState: DragState = {
   isDragging: false,
+  isEditing: false,
   startDate: '',
   startHour: 0,
   startMinutes: 0,
@@ -75,6 +88,7 @@ const initialDragState: DragState = {
   durationMinutes: MIN_DURATION_MINUTES,
   isMultiDay: false,
   daySpan: 1,
+  startDayIndex: 0,
 };
 
 export function useDragToCreate({
@@ -90,6 +104,7 @@ export function useDragToCreate({
   onDragUpdate,
   onDragEnd,
   onDragCancel,
+  onEditingStart,
   enabled = true,
 }: UseDragToCreateOptions): UseDragToCreateResult {
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -100,17 +115,66 @@ export function useDragToCreate({
   const startYRef = useRef(0);
   const startXRef = useRef(0);
   const startDayIndexRef = useRef(0);
+  const lastDayIndexRef = useRef(0);  // NEW: for debouncing day changes
+  const dayChangeAccumulatorRef = useRef(0);  // NEW: accumulate horizontal movement
 
   // Shared values for smooth animations
   const isDraggingShared = useSharedValue(false);
 
-  // Cancel drag
+  // Day change threshold (60% into next column before switching)
+  const dayChangeThreshold = dayColumnWidth * 0.6;
+
+  // Cancel drag and clear placeholder
   const cancelDrag = useCallback(() => {
     setDragState(null);
     dragStateRef.current = null;
     isDraggingShared.value = false;
     onDragCancel?.();
   }, [isDraggingShared, onDragCancel]);
+
+  // Confirm placeholder and trigger event creation
+  const confirmPlaceholder = useCallback(() => {
+    if (!dragStateRef.current) return;
+
+    const finalState = dragStateRef.current;
+    triggerCompletionHaptic();
+
+    // Call onDragEnd to trigger event creation flow
+    onDragEnd?.(finalState);
+
+    // Clear the placeholder
+    setDragState(null);
+    dragStateRef.current = null;
+    isDraggingShared.value = false;
+  }, [isDraggingShared, onDragEnd]);
+
+  // Update placeholder bounds (for resize operations)
+  const updatePlaceholderBounds = useCallback((bounds: Partial<DragState>) => {
+    if (!dragStateRef.current) return;
+
+    const currentState = dragStateRef.current;
+    const newState: DragState = {
+      ...currentState,
+      ...bounds,
+    };
+
+    // Recalculate duration if times changed
+    if (bounds.startHour !== undefined || bounds.startMinutes !== undefined ||
+        bounds.endHour !== undefined || bounds.endMinutes !== undefined) {
+      const startMinutesTotal = newState.startHour * 60 + newState.startMinutes;
+      const endMinutesTotal = newState.endHour * 60 + newState.endMinutes;
+      newState.durationMinutes = Math.max(MIN_DURATION_MINUTES, endMinutesTotal - startMinutesTotal);
+    }
+
+    // Update multi-day state if daySpan changed
+    if (bounds.daySpan !== undefined) {
+      newState.isMultiDay = bounds.daySpan > 1;
+    }
+
+    dragStateRef.current = newState;
+    setDragState(newState);
+    onDragUpdate?.(newState);
+  }, [onDragUpdate]);
 
   // Calculate new duration based on drag
   const calculateDuration = useCallback(
@@ -124,6 +188,19 @@ export function useDragToCreate({
       return clampDuration(newDuration, MIN_DURATION_MINUTES, MAX_DURATION_MINUTES);
     },
     [pixelsPerHour, snapMinutes]
+  );
+
+  // Check if we should change day index (debounced)
+  const shouldChangeDayIndex = useCallback(
+    (newIndex: number, translationX: number): boolean => {
+      if (newIndex === lastDayIndexRef.current) return false;
+      if (newIndex < 0 || newIndex > 6) return false;
+
+      // Require significant horizontal movement to change days
+      const pixelsIntoDayColumn = Math.abs(translationX) % dayColumnWidth;
+      return pixelsIntoDayColumn > dayChangeThreshold;
+    },
+    [dayColumnWidth, dayChangeThreshold]
   );
 
   // Update drag state with new duration
@@ -155,8 +232,12 @@ export function useDragToCreate({
       let daySpan = 1;
 
       if (viewType === 'week' && dayIndex !== undefined && dayIndex !== startDayIndexRef.current) {
-        // Multi-day event in week view
-        triggerDayBoundaryHaptic();
+        // Only trigger haptic if actually changing day
+        if (dayIndex !== lastDayIndexRef.current) {
+          triggerDayBoundaryHaptic();
+          lastDayIndexRef.current = dayIndex;
+        }
+
         const newDate = getDayFromIndex(startDate, dayIndex);
         endDate = newDate.toISOString().split('T')[0];
         isMultiDay = true;
@@ -196,10 +277,12 @@ export function useDragToCreate({
       let eventDate = startDate.toISOString().split('T')[0];
 
       if (viewType === 'week') {
-        dayIndex = xToDayIndex(x, gridLeft, timeColumnWidth, dayColumnWidth);
+        // Use x relative to the gesture view, accounting for time column
+        dayIndex = xToDayIndex(x, 0, timeColumnWidth, dayColumnWidth);
         const date = getDayFromIndex(startDate, dayIndex);
         eventDate = date.toISOString().split('T')[0];
         startDayIndexRef.current = dayIndex;
+        lastDayIndexRef.current = dayIndex;
       }
 
       // For month view, use the provided date directly
@@ -210,6 +293,7 @@ export function useDragToCreate({
 
         const newState: DragState = {
           isDragging: true,
+          isEditing: false,
           startDate: eventDate,
           startHour: monthHour,
           startMinutes: monthMinutes,
@@ -219,6 +303,7 @@ export function useDragToCreate({
           durationMinutes: 60,
           isMultiDay: false,
           daySpan: 1,
+          startDayIndex: dayIndex,
         };
 
         dragStateRef.current = newState;
@@ -234,6 +319,7 @@ export function useDragToCreate({
       // Day and week view initial state
       const newState: DragState = {
         isDragging: true,
+        isEditing: false,
         startDate: eventDate,
         startHour: hour,
         startMinutes: minutes,
@@ -243,6 +329,7 @@ export function useDragToCreate({
         durationMinutes: MIN_DURATION_MINUTES,
         isMultiDay: false,
         daySpan: 1,
+        startDayIndex: dayIndex,
       };
 
       // Handle end minutes overflow
@@ -257,6 +344,7 @@ export function useDragToCreate({
       startYRef.current = y;
       startXRef.current = x;
       lastDurationRef.current = MIN_DURATION_MINUTES;
+      dayChangeAccumulatorRef.current = 0;
       onDragStart?.(newState);
     },
     [
@@ -315,13 +403,20 @@ export function useDragToCreate({
 
       // Week view: also check for horizontal movement (day change)
       if (viewType === 'week') {
-        const currentDayIndex = xToDayIndex(
-          absoluteX,
-          gridLeft,
-          timeColumnWidth,
-          dayColumnWidth
-        );
-        updateDragState(newDuration, currentDayIndex);
+        // Calculate day index from the gesture's X translation relative to start
+        // Use accumulated translation rather than absolute position for more stable tracking
+        dayChangeAccumulatorRef.current = translationX;
+
+        // Calculate how many columns we've moved from start
+        const dayDelta = Math.round(translationX / dayColumnWidth);
+        const targetDayIndex = startDayIndexRef.current + dayDelta;
+
+        // Only change if we've moved significantly into the new column
+        if (shouldChangeDayIndex(targetDayIndex, translationX)) {
+          updateDragState(newDuration, targetDayIndex);
+        } else {
+          updateDragState(newDuration, lastDayIndexRef.current);
+        }
       } else {
         updateDragState(newDuration);
       }
@@ -332,27 +427,33 @@ export function useDragToCreate({
       startDate,
       calculateDuration,
       updateDragState,
-      gridLeft,
-      timeColumnWidth,
+      shouldChangeDayIndex,
       onDragUpdate,
     ]
   );
 
-  // Handle drag end
+  // Handle drag end - transition to editing mode, NOT dismiss
   const handleDragEnd = useCallback(() => {
     if (!dragStateRef.current) return;
 
-    const finalState = dragStateRef.current;
-    triggerCompletionHaptic();
+    const currentState = dragStateRef.current;
 
-    // Reset state
+    // Transition to editing mode
+    const editingState: DragState = {
+      ...currentState,
+      isDragging: false,
+      isEditing: true,
+    };
+
+    dragStateRef.current = editingState;
+    setDragState(editingState);
     isDraggingShared.value = false;
 
-    // Call completion callback
-    onDragEnd?.(finalState);
+    // Notify that we've entered editing mode
+    onEditingStart?.(editingState);
 
-    // Keep the state for transition animation, parent will clear it
-  }, [isDraggingShared, onDragEnd]);
+    // NOTE: We do NOT call onDragEnd here - that happens when user confirms
+  }, [isDraggingShared, onEditingStart]);
 
   // Long press gesture
   const longPressGesture = useMemo(
@@ -397,7 +498,10 @@ export function useDragToCreate({
     composedGesture,
     dragState,
     isDragging: dragState?.isDragging ?? false,
+    isEditing: dragState?.isEditing ?? false,
     cancelDrag,
+    confirmPlaceholder,
+    updatePlaceholderBounds,
   };
 }
 

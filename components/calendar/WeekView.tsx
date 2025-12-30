@@ -2,7 +2,7 @@
  * WeekView - Weekly calendar view with day columns, drag-drop events,
  * and corner resize handles for multi-day event creation
  * Includes conflict highlighting during drag operations
- * Supports long-press drag-to-create for new events
+ * Supports long-press drag-to-create for new events with persistent placeholder
  */
 import React, { useMemo, useState, useCallback, useRef } from 'react';
 import {
@@ -14,6 +14,7 @@ import {
   Dimensions,
   PanResponder,
   LayoutChangeEvent,
+  Pressable,
 } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
@@ -22,8 +23,8 @@ import { Event } from '../../lib/api/types';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import EventBlock, { PIXELS_PER_HOUR } from './EventBlock';
 import { getConflictingEvents } from '../../utils/eventConflicts';
-import PlaceholderContainer from './PlaceholderContainer';
-import { useDragToCreate, DragState, minutesToPixels } from './gestures';
+import PlaceholderContainer, { ResizeHandleType } from './PlaceholderContainer';
+import { useDragToCreate, DragState, minutesToPixels, useResizePlaceholder, PlaceholderBounds } from './gestures';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const DAYS_IN_WEEK = 7;
@@ -116,7 +117,7 @@ export default function WeekView({
   }, []);
 
   const handleCreateDragEnd = useCallback((state: DragState) => {
-    console.log('[WeekView] Drag-to-create ended:', state);
+    console.log('[WeekView] Drag-to-create confirmed:', state);
     if (onEventCreate) {
       const startDate = new Date(state.startDate);
       startDate.setHours(state.startHour, state.startMinutes, 0, 0);
@@ -132,7 +133,19 @@ export default function WeekView({
     console.log('[WeekView] Drag-to-create cancelled');
   }, []);
 
-  const { composedGesture, dragState, isDragging: isCreating, cancelDrag } = useDragToCreate({
+  const handleEditingStart = useCallback((state: DragState) => {
+    console.log('[WeekView] Placeholder editing started:', state);
+  }, []);
+
+  const {
+    composedGesture,
+    dragState,
+    isDragging: isCreating,
+    isEditing: isPlaceholderEditing,
+    cancelDrag,
+    confirmPlaceholder,
+    updatePlaceholderBounds,
+  } = useDragToCreate({
     viewType: 'week',
     pixelsPerHour: PIXELS_PER_HOUR,
     gridTop,
@@ -144,8 +157,93 @@ export default function WeekView({
     onDragUpdate: handleCreateDragUpdate,
     onDragEnd: handleCreateDragEnd,
     onDragCancel: handleCreateDragCancel,
+    onEditingStart: handleEditingStart,
     enabled: !draggingEvent && !resizingEvent && !cornerResize.event,
   });
+
+  // Handle placeholder resize callbacks
+  const handlePlaceholderResizeStart = useCallback((handle: ResizeHandleType) => {
+    console.log('[WeekView] Placeholder resize start:', handle);
+  }, []);
+
+  const handlePlaceholderResizeMove = useCallback((handle: ResizeHandleType, delta: { x: number; y: number }) => {
+    if (!dragState) return;
+
+    // Calculate new bounds based on handle and delta
+    const minutesDelta = Math.round((delta.y / PIXELS_PER_HOUR) * 60 / 15) * 15;
+    const daysDelta = Math.round(delta.x / DAY_COLUMN_WIDTH);
+
+    let newBounds: Partial<DragState> = {};
+
+    switch (handle) {
+      case 'top': {
+        // Adjust start time
+        const newStartMinutes = dragState.startHour * 60 + dragState.startMinutes + minutesDelta;
+        const endMinutes = dragState.endHour * 60 + dragState.endMinutes;
+        // Ensure minimum 15 min duration
+        const clampedStartMinutes = Math.min(newStartMinutes, endMinutes - 15);
+        const clampedStart = Math.max(0, clampedStartMinutes);
+        newBounds = {
+          startHour: Math.floor(clampedStart / 60),
+          startMinutes: clampedStart % 60,
+        };
+        break;
+      }
+      case 'bottom': {
+        // Adjust end time
+        const startMinutes = dragState.startHour * 60 + dragState.startMinutes;
+        const newEndMinutes = dragState.endHour * 60 + dragState.endMinutes + minutesDelta;
+        // Ensure minimum 15 min duration
+        const clampedEndMinutes = Math.max(newEndMinutes, startMinutes + 15);
+        const clampedEnd = Math.min(24 * 60 - 15, clampedEndMinutes);
+        newBounds = {
+          endHour: Math.floor(clampedEnd / 60),
+          endMinutes: clampedEnd % 60,
+        };
+        break;
+      }
+      case 'left': {
+        // Adjust start day
+        const newStartDayIndex = Math.max(0, Math.min(6, dragState.startDayIndex + daysDelta));
+        const newDaySpan = Math.max(1, dragState.daySpan - daysDelta);
+        newBounds = {
+          startDayIndex: newStartDayIndex,
+          daySpan: newDaySpan,
+          isMultiDay: newDaySpan > 1,
+        };
+        break;
+      }
+      case 'right': {
+        // Adjust day span
+        const newDaySpan = Math.max(1, Math.min(7 - dragState.startDayIndex, dragState.daySpan + daysDelta));
+        newBounds = {
+          daySpan: newDaySpan,
+          isMultiDay: newDaySpan > 1,
+        };
+        break;
+      }
+    }
+
+    updatePlaceholderBounds(newBounds);
+  }, [dragState, updatePlaceholderBounds]);
+
+  const handlePlaceholderResizeEnd = useCallback((handle: ResizeHandleType) => {
+    console.log('[WeekView] Placeholder resize end:', handle);
+  }, []);
+
+  // Handle confirm (checkmark button)
+  const handlePlaceholderConfirm = useCallback(() => {
+    console.log('[WeekView] Placeholder confirmed');
+    confirmPlaceholder();
+  }, [confirmPlaceholder]);
+
+  // Handle tap outside placeholder to dismiss
+  const handleTapOutside = useCallback(() => {
+    if (isPlaceholderEditing) {
+      console.log('[WeekView] Tap outside - cancelling placeholder');
+      cancelDrag();
+    }
+  }, [isPlaceholderEditing, cancelDrag]);
 
   // Calculate placeholder position from drag state
   const placeholderPosition = useMemo(() => {
@@ -153,14 +251,15 @@ export default function WeekView({
     const top = (dragState.startHour + dragState.startMinutes / 60) * PIXELS_PER_HOUR;
     const height = minutesToPixels(dragState.durationMinutes, PIXELS_PER_HOUR);
     // Calculate which day column to show the placeholder in
-    const dayIndex = new Date(dragState.startDate).getDay();
+    const dayIndex = dragState.startDayIndex;
     const left = TIME_LABEL_WIDTH + dayIndex * DAY_COLUMN_WIDTH + 1;
-    const width = DAY_COLUMN_WIDTH - 2;
+    // Width spans multiple days if daySpan > 1
+    const width = DAY_COLUMN_WIDTH * dragState.daySpan - 2;
     return { top, height, left, width };
   }, [dragState]);
 
   // Disable scroll when interacting
-  const isInteracting = draggingEvent !== null || cornerResize.event !== null || resizingEvent !== null || isCreating;
+  const isInteracting = draggingEvent !== null || cornerResize.event !== null || resizingEvent !== null || isCreating || isPlaceholderEditing;
 
   // Calculate conflict zones during drag/resize
   const conflictZones = useMemo(() => {
@@ -553,7 +652,7 @@ export default function WeekView({
             {/* Placeholder for drag-to-create (positioned absolutely in gridContainer) */}
             {dragState && placeholderPosition && (
               <PlaceholderContainer
-                visible={isCreating}
+                visible={isCreating || isPlaceholderEditing}
                 startTime={(() => {
                   const d = new Date(dragState.startDate);
                   d.setHours(dragState.startHour, dragState.startMinutes, 0, 0);
@@ -571,6 +670,21 @@ export default function WeekView({
                 left={placeholderPosition.left}
                 width={placeholderPosition.width}
                 height={placeholderPosition.height}
+                isMultiDay={dragState.isMultiDay}
+                daySpan={dragState.daySpan}
+                isEditing={isPlaceholderEditing}
+                onResizeStart={handlePlaceholderResizeStart}
+                onResizeMove={handlePlaceholderResizeMove}
+                onResizeEnd={handlePlaceholderResizeEnd}
+                onConfirm={handlePlaceholderConfirm}
+              />
+            )}
+
+            {/* Tap outside overlay to dismiss placeholder */}
+            {isPlaceholderEditing && (
+              <Pressable
+                style={styles.tapOutsideOverlay}
+                onPress={handleTapOutside}
               />
             )}
 
@@ -1097,5 +1211,9 @@ const createStyles = (tokens: ThemeTokens) =>
       alignItems: 'center',
       justifyContent: 'center',
       opacity: 0.7,
+    },
+    tapOutsideOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 40,
     },
   });

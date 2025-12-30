@@ -1,7 +1,7 @@
 /**
  * DayView - Daily calendar view with hour slots and drag-drop events
  * Includes conflict highlighting during drag operations
- * Supports long-press drag-to-create for new events
+ * Supports long-press drag-to-create for new events with persistent placeholder
  */
 import React, { useMemo, useState, useCallback, useRef } from 'react';
 import {
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   Dimensions,
   LayoutChangeEvent,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -20,7 +21,7 @@ import { Event } from '../../lib/api/types';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import EventBlock, { PIXELS_PER_HOUR } from './EventBlock';
 import { getConflictingEvents } from '../../utils/eventConflicts';
-import PlaceholderContainer from './PlaceholderContainer';
+import PlaceholderContainer, { ResizeHandleType } from './PlaceholderContainer';
 import { useDragToCreate, DragState, minutesToPixels, timeToY } from './gestures';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -72,7 +73,7 @@ export default function DayView({
   }, []);
 
   const handleCreateDragEnd = useCallback((state: DragState) => {
-    console.log('[DayView] Drag-to-create ended:', state);
+    console.log('[DayView] Drag-to-create confirmed:', state);
     if (onEventCreate) {
       const startDate = new Date(state.startDate);
       startDate.setHours(state.startHour, state.startMinutes, 0, 0);
@@ -88,7 +89,19 @@ export default function DayView({
     console.log('[DayView] Drag-to-create cancelled');
   }, []);
 
-  const { composedGesture, dragState, isDragging: isCreating, cancelDrag } = useDragToCreate({
+  const handleEditingStart = useCallback((state: DragState) => {
+    console.log('[DayView] Placeholder editing started:', state);
+  }, []);
+
+  const {
+    composedGesture,
+    dragState,
+    isDragging: isCreating,
+    isEditing: isPlaceholderEditing,
+    cancelDrag,
+    confirmPlaceholder,
+    updatePlaceholderBounds,
+  } = useDragToCreate({
     viewType: 'day',
     pixelsPerHour: PIXELS_PER_HOUR,
     gridTop,
@@ -97,8 +110,77 @@ export default function DayView({
     onDragUpdate: handleCreateDragUpdate,
     onDragEnd: handleCreateDragEnd,
     onDragCancel: handleCreateDragCancel,
+    onEditingStart: handleEditingStart,
     enabled: !draggingEvent && !resizingEvent,
   });
+
+  // Handle placeholder resize callbacks
+  const handlePlaceholderResizeStart = useCallback((handle: ResizeHandleType) => {
+    console.log('[DayView] Placeholder resize start:', handle);
+  }, []);
+
+  const handlePlaceholderResizeMove = useCallback((handle: ResizeHandleType, delta: { x: number; y: number }) => {
+    if (!dragState) return;
+
+    // Calculate new bounds based on handle and delta
+    const minutesDelta = Math.round((delta.y / PIXELS_PER_HOUR) * 60 / 15) * 15;
+
+    let newBounds: Partial<DragState> = {};
+
+    switch (handle) {
+      case 'top': {
+        // Adjust start time
+        const newStartMinutes = dragState.startHour * 60 + dragState.startMinutes + minutesDelta;
+        const endMinutes = dragState.endHour * 60 + dragState.endMinutes;
+        // Ensure minimum 15 min duration
+        const clampedStartMinutes = Math.min(newStartMinutes, endMinutes - 15);
+        const clampedStart = Math.max(0, clampedStartMinutes);
+        newBounds = {
+          startHour: Math.floor(clampedStart / 60),
+          startMinutes: clampedStart % 60,
+        };
+        break;
+      }
+      case 'bottom': {
+        // Adjust end time
+        const startMinutes = dragState.startHour * 60 + dragState.startMinutes;
+        const newEndMinutes = dragState.endHour * 60 + dragState.endMinutes + minutesDelta;
+        // Ensure minimum 15 min duration
+        const clampedEndMinutes = Math.max(newEndMinutes, startMinutes + 15);
+        const clampedEnd = Math.min(24 * 60 - 15, clampedEndMinutes);
+        newBounds = {
+          endHour: Math.floor(clampedEnd / 60),
+          endMinutes: clampedEnd % 60,
+        };
+        break;
+      }
+      // Left/right handles not used in day view
+      default:
+        break;
+    }
+
+    if (Object.keys(newBounds).length > 0) {
+      updatePlaceholderBounds(newBounds);
+    }
+  }, [dragState, updatePlaceholderBounds]);
+
+  const handlePlaceholderResizeEnd = useCallback((handle: ResizeHandleType) => {
+    console.log('[DayView] Placeholder resize end:', handle);
+  }, []);
+
+  // Handle confirm (checkmark button)
+  const handlePlaceholderConfirm = useCallback(() => {
+    console.log('[DayView] Placeholder confirmed');
+    confirmPlaceholder();
+  }, [confirmPlaceholder]);
+
+  // Handle tap outside placeholder to dismiss
+  const handleTapOutside = useCallback(() => {
+    if (isPlaceholderEditing) {
+      console.log('[DayView] Tap outside - cancelling placeholder');
+      cancelDrag();
+    }
+  }, [isPlaceholderEditing, cancelDrag]);
 
   // Calculate placeholder position from drag state
   const placeholderPosition = useMemo(() => {
@@ -109,7 +191,7 @@ export default function DayView({
   }, [dragState]);
 
   // Disable scroll when dragging/resizing/creating
-  const isInteracting = draggingEvent !== null || resizingEvent !== null || isCreating;
+  const isInteracting = draggingEvent !== null || resizingEvent !== null || isCreating || isPlaceholderEditing;
 
   // Calculate conflict zones during drag/resize
   const conflictZones = useMemo(() => {
@@ -448,7 +530,7 @@ export default function DayView({
             {/* Placeholder for drag-to-create */}
             {dragState && placeholderPosition && (
               <PlaceholderContainer
-                visible={isCreating}
+                visible={isCreating || isPlaceholderEditing}
                 startTime={(() => {
                   const d = new Date(dragState.startDate);
                   d.setHours(dragState.startHour, dragState.startMinutes, 0, 0);
@@ -464,6 +546,19 @@ export default function DayView({
                 viewType="day"
                 top={placeholderPosition.top}
                 height={placeholderPosition.height}
+                isEditing={isPlaceholderEditing}
+                onResizeStart={handlePlaceholderResizeStart}
+                onResizeMove={handlePlaceholderResizeMove}
+                onResizeEnd={handlePlaceholderResizeEnd}
+                onConfirm={handlePlaceholderConfirm}
+              />
+            )}
+
+            {/* Tap outside overlay to dismiss placeholder */}
+            {isPlaceholderEditing && (
+              <Pressable
+                style={styles.tapOutsideOverlay}
+                onPress={handleTapOutside}
               />
             )}
 
@@ -637,5 +732,9 @@ const createStyles = (tokens: ThemeTokens) =>
       alignItems: 'center',
       justifyContent: 'center',
       opacity: 0.7,
+    },
+    tapOutsideOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 40,
     },
   });

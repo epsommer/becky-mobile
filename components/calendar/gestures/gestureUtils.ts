@@ -9,7 +9,7 @@ export const PIXELS_PER_HOUR = 60;
 export const SNAP_MINUTES = 15;
 export const MIN_DURATION_MINUTES = 15;
 export const MAX_DURATION_MINUTES = 12 * 60; // 12 hours
-export const LONG_PRESS_DURATION_MS = 500;
+export const LONG_PRESS_DURATION_MS = 400; // Reduced from 500ms for snappier feel
 export const DRAG_THRESHOLD_PX = 5;
 
 /**

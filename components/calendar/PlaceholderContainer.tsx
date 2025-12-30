@@ -1,19 +1,18 @@
 /**
  * PlaceholderContainer - Visual placeholder during drag-to-create events
  * Shows time range, duration, and animates appearance/updates
+ * Supports editing mode with resize handles and action buttons
  */
 import React, { useMemo, useEffect } from 'react';
-import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, ViewStyle, TouchableOpacity } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
-  interpolate,
-  Extrapolate,
-  FadeIn,
-  FadeOut,
 } from 'react-native-reanimated';
+import { GestureDetector, Gesture, GestureType } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import {
   formatTime,
@@ -26,6 +25,7 @@ const COMPACT_HEIGHT_THRESHOLD = 35;
 const MEDIUM_HEIGHT_THRESHOLD = 50;
 
 export type PlaceholderViewType = 'day' | 'week' | 'month';
+export type ResizeHandleType = 'top' | 'bottom' | 'left' | 'right';
 
 export interface PlaceholderContainerProps {
   visible: boolean;
@@ -44,6 +44,12 @@ export interface PlaceholderContainerProps {
   // Multi-day indicator
   isMultiDay?: boolean;
   daySpan?: number;
+  // Editing mode props
+  isEditing?: boolean;
+  onResizeStart?: (handle: ResizeHandleType) => void;
+  onResizeMove?: (handle: ResizeHandleType, delta: { x: number; y: number }) => void;
+  onResizeEnd?: (handle: ResizeHandleType) => void;
+  onConfirm?: () => void;
 }
 
 export default function PlaceholderContainer({
@@ -60,6 +66,11 @@ export default function PlaceholderContainer({
   title,
   isMultiDay = false,
   daySpan = 1,
+  isEditing = false,
+  onResizeStart,
+  onResizeMove,
+  onResizeEnd,
+  onConfirm,
 }: PlaceholderContainerProps) {
   const { tokens } = useTheme();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
@@ -104,7 +115,7 @@ export default function PlaceholderContainer({
     }
   }, [visible, scale, opacity]);
 
-  // Animated styles
+  // Animated styles - using ONLY animated opacity (no layout animations to avoid conflict)
   const animatedContainerStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
     opacity: opacity.value,
@@ -118,9 +129,34 @@ export default function PlaceholderContainer({
     height: Math.max(calculatedHeight, 20),
   };
 
+  // Create resize gesture for a handle
+  const createResizeGesture = (handle: ResizeHandleType): GestureType => {
+    return Gesture.Pan()
+      .enabled(isEditing)
+      .onStart(() => {
+        onResizeStart?.(handle);
+      })
+      .onUpdate((event) => {
+        onResizeMove?.(handle, { x: event.translationX, y: event.translationY });
+      })
+      .onEnd(() => {
+        onResizeEnd?.(handle);
+      });
+  };
+
+  // Create gestures for each handle
+  const topResizeGesture = useMemo(() => createResizeGesture('top'), [isEditing, onResizeStart, onResizeMove, onResizeEnd]);
+  const bottomResizeGesture = useMemo(() => createResizeGesture('bottom'), [isEditing, onResizeStart, onResizeMove, onResizeEnd]);
+  const leftResizeGesture = useMemo(() => createResizeGesture('left'), [isEditing, onResizeStart, onResizeMove, onResizeEnd]);
+  const rightResizeGesture = useMemo(() => createResizeGesture('right'), [isEditing, onResizeStart, onResizeMove, onResizeEnd]);
+
   if (!visible) {
     return null;
   }
+
+  // Show action buttons only in editing mode with enough space
+  const showActionButtons = isEditing && calculatedHeight > 40;
+  const showResizeHandles = isEditing;
 
   return (
     <Animated.View
@@ -128,11 +164,29 @@ export default function PlaceholderContainer({
         styles.container,
         containerPositionStyle,
         animatedContainerStyle,
+        isEditing && styles.editingContainer,
       ]}
-      entering={FadeIn.duration(150)}
-      exiting={FadeOut.duration(100)}
-      pointerEvents="none"
+      // Remove pointerEvents="none" when editing to allow interaction
+      pointerEvents={isEditing ? 'auto' : 'none'}
     >
+      {/* Top resize handle */}
+      {showResizeHandles && (
+        <GestureDetector gesture={topResizeGesture}>
+          <View style={styles.resizeHandleTop}>
+            <View style={[styles.handleBar, { backgroundColor: tokens.accent }]} />
+          </View>
+        </GestureDetector>
+      )}
+
+      {/* Left resize handle (week view only for multi-day) */}
+      {showResizeHandles && viewType === 'week' && (
+        <GestureDetector gesture={leftResizeGesture}>
+          <View style={styles.resizeHandleLeft}>
+            <View style={[styles.handleBarVertical, { backgroundColor: tokens.accent }]} />
+          </View>
+        </GestureDetector>
+      )}
+
       <View style={styles.innerContainer}>
         {/* Time display - always visible */}
         <View style={styles.timeContainer}>
@@ -167,10 +221,60 @@ export default function PlaceholderContainer({
         )}
 
         {/* New Event label for full mode without title */}
-        {displayMode === 'full' && !title && (
+        {displayMode === 'full' && !title && !isEditing && (
           <Text style={styles.newEventText}>New Event</Text>
         )}
+
+        {/* Action buttons in editing mode */}
+        {showActionButtons && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              onPress={onConfirm}
+              style={[styles.actionButton, styles.confirmButton]}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="checkmark" size={18} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onCancel}
+              style={[styles.actionButton, styles.cancelButton]}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={18} color="white" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Inline action buttons for compact mode */}
+        {isEditing && !showActionButtons && (
+          <View style={styles.inlineActions}>
+            <TouchableOpacity onPress={onConfirm} activeOpacity={0.7}>
+              <Ionicons name="checkmark-circle" size={20} color={tokens.accent} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onCancel} activeOpacity={0.7}>
+              <Ionicons name="close-circle" size={20} color={tokens.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
+
+      {/* Right resize handle (week view only for multi-day) */}
+      {showResizeHandles && viewType === 'week' && (
+        <GestureDetector gesture={rightResizeGesture}>
+          <View style={styles.resizeHandleRight}>
+            <View style={[styles.handleBarVertical, { backgroundColor: tokens.accent }]} />
+          </View>
+        </GestureDetector>
+      )}
+
+      {/* Bottom resize handle */}
+      {showResizeHandles && (
+        <GestureDetector gesture={bottomResizeGesture}>
+          <View style={styles.resizeHandleBottom}>
+            <View style={[styles.handleBar, { backgroundColor: tokens.accent }]} />
+          </View>
+        </GestureDetector>
+      )}
     </Animated.View>
   );
 }
@@ -186,8 +290,18 @@ const createStyles = (tokens: ThemeTokens) =>
       borderColor: tokens.accent,
       backgroundColor: `${tokens.accent}30`,
       borderLeftWidth: 4,
-      overflow: 'hidden',
+      overflow: 'visible',
       zIndex: 50,
+    },
+    editingContainer: {
+      borderStyle: 'solid',
+      borderWidth: 2,
+      borderLeftWidth: 4,
+      shadowColor: tokens.accent,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 4,
     },
     innerContainer: {
       flex: 1,
@@ -239,5 +353,85 @@ const createStyles = (tokens: ThemeTokens) =>
       color: tokens.accent,
       opacity: 0.7,
       marginTop: 2,
+    },
+    // Resize handles
+    resizeHandleTop: {
+      position: 'absolute',
+      top: -8,
+      left: 0,
+      right: 0,
+      height: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 60,
+    },
+    resizeHandleBottom: {
+      position: 'absolute',
+      bottom: -8,
+      left: 0,
+      right: 0,
+      height: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 60,
+    },
+    resizeHandleLeft: {
+      position: 'absolute',
+      left: -8,
+      top: 0,
+      bottom: 0,
+      width: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 60,
+    },
+    resizeHandleRight: {
+      position: 'absolute',
+      right: -8,
+      top: 0,
+      bottom: 0,
+      width: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 60,
+    },
+    handleBar: {
+      width: 24,
+      height: 4,
+      borderRadius: 2,
+      opacity: 0.8,
+    },
+    handleBarVertical: {
+      width: 4,
+      height: 24,
+      borderRadius: 2,
+      opacity: 0.8,
+    },
+    // Action buttons
+    actionButtons: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 6,
+      marginTop: 6,
+    },
+    actionButton: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    confirmButton: {
+      backgroundColor: '#22c55e',
+    },
+    cancelButton: {
+      backgroundColor: '#64748b',
+    },
+    inlineActions: {
+      position: 'absolute',
+      right: 4,
+      top: 2,
+      flexDirection: 'row',
+      gap: 4,
     },
   });
