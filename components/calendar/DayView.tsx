@@ -409,7 +409,11 @@ export default function DayView({
 
   // Combine tap-outside gesture with drag-to-create gesture
   // Tap gesture has maxDistance(5) so it fails when scrolling starts
-  const combinedGridGesture = Gesture.Exclusive(composedGesture, tapOutsideGesture);
+  // Memoized to prevent gesture recreation on every render which can cause handler errors
+  const combinedGridGesture = useMemo(
+    () => Gesture.Exclusive(composedGesture, tapOutsideGesture),
+    [composedGesture, tapOutsideGesture]
+  );
 
   // Handle scroll events for fixed placeholder positioning
   const handleScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {

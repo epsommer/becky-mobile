@@ -4,7 +4,7 @@
  * Supports editing mode with resize handles and action buttons
  * Supports drag-to-move functionality for repositioning events
  */
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useMemo, useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, Text, View, ViewStyle, TouchableOpacity, DimensionValue } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -174,46 +174,49 @@ export default function PlaceholderContainer({
   // 1. They're only attached to small handle areas (not the whole scroll area)
   // 2. The placeholder wrapper has pointerEvents="box-none" allowing touches to pass through
   // 3. failOffsetX causes the gesture to fail when horizontal movement exceeds threshold
-  const createResizeGesture = (handle: ResizeHandleType): GestureType => {
-    return Gesture.Pan()
-      .enabled(isEditing)
-      .minDistance(0) // Activate immediately to ensure resize feels responsive
-      .activeOffsetY([-5, 5]) // Only activate after 5px vertical movement
-      .failOffsetX([-15, 15]) // Fail if horizontal movement exceeds 15px (allow scroll)
-      .hitSlop({ top: 8, bottom: 8, left: 0, right: 0 }) // Vertical-only expansion, minimal
-      .shouldCancelWhenOutside(true) // Cancel if finger moves outside handle area
-      .onBegin(() => {
-        'worklet';
-        console.log('[PlaceholderContainer] Gesture onBegin:', handle);
-      })
-      .onStart(() => {
-        'worklet';
-        console.log('[PlaceholderContainer] Gesture onStart:', handle);
-        if (onResizeStart) {
-          runOnJS(onResizeStart)(handle);
-        }
-      })
-      .onUpdate((event) => {
-        'worklet';
-        // onUpdate fires continuously during active gesture
-        if (onResizeMove) {
-          runOnJS(onResizeMove)(handle, { x: event.translationX, y: event.translationY });
-        }
-      })
-      .onEnd(() => {
-        'worklet';
-        console.log('[PlaceholderContainer] Gesture onEnd:', handle);
-        if (onResizeEnd) {
-          runOnJS(onResizeEnd)(handle);
-        }
-      });
-  };
+  const createResizeGesture = useCallback(
+    (handle: ResizeHandleType): GestureType => {
+      return Gesture.Pan()
+        .enabled(isEditing)
+        .minDistance(0) // Activate immediately to ensure resize feels responsive
+        .activeOffsetY([-5, 5]) // Only activate after 5px vertical movement
+        .failOffsetX([-15, 15]) // Fail if horizontal movement exceeds 15px (allow scroll)
+        .hitSlop({ top: 8, bottom: 8, left: 0, right: 0 }) // Vertical-only expansion, minimal
+        .shouldCancelWhenOutside(true) // Cancel if finger moves outside handle area
+        .onBegin(() => {
+          'worklet';
+          console.log('[PlaceholderContainer] Gesture onBegin:', handle);
+        })
+        .onStart(() => {
+          'worklet';
+          console.log('[PlaceholderContainer] Gesture onStart:', handle);
+          if (onResizeStart) {
+            runOnJS(onResizeStart)(handle);
+          }
+        })
+        .onUpdate((event) => {
+          'worklet';
+          // onUpdate fires continuously during active gesture
+          if (onResizeMove) {
+            runOnJS(onResizeMove)(handle, { x: event.translationX, y: event.translationY });
+          }
+        })
+        .onEnd(() => {
+          'worklet';
+          console.log('[PlaceholderContainer] Gesture onEnd:', handle);
+          if (onResizeEnd) {
+            runOnJS(onResizeEnd)(handle);
+          }
+        });
+    },
+    [isEditing, onResizeStart, onResizeMove, onResizeEnd]
+  );
 
-  // Create gestures for each handle
-  const topResizeGesture = useMemo(() => createResizeGesture('top'), [isEditing, onResizeStart, onResizeMove, onResizeEnd]);
-  const bottomResizeGesture = useMemo(() => createResizeGesture('bottom'), [isEditing, onResizeStart, onResizeMove, onResizeEnd]);
-  const leftResizeGesture = useMemo(() => createResizeGesture('left'), [isEditing, onResizeStart, onResizeMove, onResizeEnd]);
-  const rightResizeGesture = useMemo(() => createResizeGesture('right'), [isEditing, onResizeStart, onResizeMove, onResizeEnd]);
+  // Create gestures for each handle - depends on createResizeGesture callback
+  const topResizeGesture = useMemo(() => createResizeGesture('top'), [createResizeGesture]);
+  const bottomResizeGesture = useMemo(() => createResizeGesture('bottom'), [createResizeGesture]);
+  const leftResizeGesture = useMemo(() => createResizeGesture('left'), [createResizeGesture]);
+  const rightResizeGesture = useMemo(() => createResizeGesture('right'), [createResizeGesture]);
 
   // Helper functions for haptic feedback during body drag
   const handleDragMoveStartJS = () => {
