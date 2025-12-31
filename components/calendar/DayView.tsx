@@ -407,9 +407,9 @@ export default function DayView({
     [isPlaceholderEditing, handleTapOutside]
   );
 
-  // TODO: Re-add tap-outside detection once scroll is working
-  // For now, just use the drag-to-create gesture
-  const combinedGridGesture = composedGesture;
+  // Combine tap-outside gesture with drag-to-create gesture
+  // Tap gesture has maxDistance(5) so it fails when scrolling starts
+  const combinedGridGesture = Gesture.Exclusive(composedGesture, tapOutsideGesture);
 
   // Handle scroll events for fixed placeholder positioning
   const handleScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
@@ -918,11 +918,15 @@ export default function DayView({
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
-          {/* Conditionally wrap with GestureDetector - skip during editing to allow scroll */}
+          {/* Conditionally wrap with GestureDetector
+              - During editing: only tap gesture for dismiss (allows scroll)
+              - Otherwise: full combined gesture (long-press to create + tap) */}
           {isPlaceholderEditing ? (
-            <Animated.View style={styles.timeGrid} onLayout={handleGridLayout}>
-              {renderTimeGridContent()}
-            </Animated.View>
+            <GestureDetector gesture={tapOutsideGesture}>
+              <Animated.View style={styles.timeGrid} onLayout={handleGridLayout}>
+                {renderTimeGridContent()}
+              </Animated.View>
+            </GestureDetector>
           ) : (
             <GestureDetector gesture={combinedGridGesture}>
               <Animated.View style={styles.timeGrid} onLayout={handleGridLayout}>
@@ -991,6 +995,8 @@ export default function DayView({
                   onCancel={cancelDrag}
                   viewType="day"
                   top={0}
+                  left={0}
+                  width="100%"
                   height={fixedPlaceholderPosition.overlayHeight}
                   isEditing={true}
                   onResizeStart={handlePlaceholderResizeStart}

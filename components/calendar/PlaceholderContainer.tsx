@@ -5,7 +5,7 @@
  * Supports drag-to-move functionality for repositioning events
  */
 import React, { useMemo, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, ViewStyle, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ViewStyle, TouchableOpacity, DimensionValue } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -156,10 +156,14 @@ export default function PlaceholderContainer({
   }));
 
   // Dynamic container style based on props
+  // When width is explicitly set (number or string like "100%"), use it and remove right constraint
+  // This prevents double-margin issues when placeholder is in a positioned wrapper
   const containerPositionStyle: ViewStyle = {
     top,
     left: typeof left === 'number' ? left : undefined,
-    width: typeof width === 'number' ? width : undefined,
+    width: width !== undefined ? (width as DimensionValue) : undefined,
+    // Remove right constraint when width is explicitly set to avoid layout conflicts
+    right: width !== undefined ? undefined : 8,
     height: Math.max(calculatedHeight, 20),
   };
 
@@ -424,7 +428,8 @@ const createStyles = (tokens: ThemeTokens) =>
   StyleSheet.create({
     container: {
       position: 'absolute',
-      right: 8,
+      // Note: 'right' is set dynamically in containerPositionStyle based on whether width is explicit
+      // This prevents double-margin issues when placeholder is in a positioned wrapper
       borderRadius: 6,
       borderWidth: 2,
       borderStyle: 'dashed',
