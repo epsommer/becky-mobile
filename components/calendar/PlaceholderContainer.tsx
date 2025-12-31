@@ -107,6 +107,12 @@ export default function PlaceholderContainer({
   const dragScale = useSharedValue(1);
   const lastSnappedMinutesRef = useRef(0);
 
+  // Resize state - shared values for smooth UI-thread updates
+  // These track the visual offset during resize, applied via animated style
+  const resizeTopDelta = useSharedValue(0);
+  const resizeHeightDelta = useSharedValue(0);
+  const isResizing = useSharedValue(false);
+
   // Calculate duration in minutes
   const durationMinutes = useMemo(() => {
     return Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
@@ -143,10 +149,18 @@ export default function PlaceholderContainer({
     }
   }, [visible, scale, opacity]);
 
-  // Animated styles - using ONLY animated opacity (no layout animations to avoid conflict)
+  // Animated styles - includes resize deltas for smooth UI-thread resize tracking
   const animatedContainerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value * dragScale.value }],
+    transform: [
+      { scale: scale.value * dragScale.value },
+      // Apply resize top delta as translateY for instant visual feedback
+      { translateY: resizeTopDelta.value },
+    ],
     opacity: opacity.value,
+    // Adjust height during resize for instant visual feedback
+    height: isResizing.value
+      ? Math.max(20, calculatedHeight + resizeHeightDelta.value)
+      : undefined,
   }));
 
   // Animated style for dragging body visual feedback
@@ -167,13 +181,12 @@ export default function PlaceholderContainer({
     height: Math.max(calculatedHeight, 20),
   };
 
+  // Throttle ref for resize state updates (reduce JS bridge crossings)
+  const lastResizeUpdateRef = useRef(0);
+
   // Create resize gesture for a handle
-  // Note: hitSlop is kept small to prevent capturing touches outside the placeholder
-  // The handle itself is 24px tall which provides adequate touch target
-  // These gestures should NOT interfere with scroll because:
-  // 1. They're only attached to small handle areas (not the whole scroll area)
-  // 2. The placeholder wrapper has pointerEvents="box-none" allowing touches to pass through
-  // 3. failOffsetX causes the gesture to fail when horizontal movement exceeds threshold
+  // Uses shared values for instant visual feedback on UI thread
+  // Throttles JS state updates to reduce bridge crossings
   const createResizeGesture = useCallback(
     (handle: ResizeHandleType): GestureType => {
       return Gesture.Pan()
@@ -181,35 +194,62 @@ export default function PlaceholderContainer({
         .minDistance(1) // Activate after 1px movement for responsive feel
         .failOffsetX([-20, 20]) // Fail if horizontal movement exceeds 20px (allow scroll)
         .hitSlop({ top: 12, bottom: 12, left: 8, right: 8 }) // Expand touch area for easier grabbing
-        .onBegin(() => {
-          'worklet';
-          console.log('[PlaceholderContainer] Resize onBegin:', handle);
-        })
         .onStart(() => {
           'worklet';
-          console.log('[PlaceholderContainer] Resize onStart:', handle);
+          // Mark as resizing and reset deltas
+          isResizing.value = true;
+          resizeTopDelta.value = 0;
+          resizeHeightDelta.value = 0;
           if (onResizeStart) {
             runOnJS(onResizeStart)(handle);
           }
         })
         .onUpdate((event) => {
           'worklet';
-          // onUpdate fires continuously during active gesture
-          // Log to debug resize tracking
-          console.log('[PlaceholderContainer] Resize onUpdate:', handle, 'translationY:', event.translationY);
+          const translation = event.translationY;
+
+          // Update shared values for instant visual feedback (UI thread)
+          if (handle === 'top') {
+            // Top handle: move top and adjust height inversely
+            resizeTopDelta.value = translation;
+            resizeHeightDelta.value = -translation;
+          } else if (handle === 'bottom') {
+            // Bottom handle: only adjust height
+            resizeHeightDelta.value = translation;
+          }
+
+          // Throttle JS state updates to every 50ms for smoother performance
+          const now = Date.now();
+          if (onResizeMove && now - lastResizeUpdateRef.current > 50) {
+            lastResizeUpdateRef.current = now;
+            runOnJS(onResizeMove)(handle, { x: event.translationX, y: translation });
+          }
+        })
+        .onEnd((event) => {
+          'worklet';
+          // Final state update with exact position
           if (onResizeMove) {
             runOnJS(onResizeMove)(handle, { x: event.translationX, y: event.translationY });
           }
-        })
-        .onEnd(() => {
-          'worklet';
-          console.log('[PlaceholderContainer] Resize onEnd:', handle);
+
+          // Reset visual deltas - the state update will handle final position
+          isResizing.value = false;
+          resizeTopDelta.value = 0;
+          resizeHeightDelta.value = 0;
+
           if (onResizeEnd) {
             runOnJS(onResizeEnd)(handle);
           }
+        })
+        .onFinalize(() => {
+          'worklet';
+          // Ensure cleanup on any gesture termination
+          isResizing.value = false;
+          resizeTopDelta.value = 0;
+          resizeHeightDelta.value = 0;
         });
     },
-    [isEditing, onResizeStart, onResizeMove, onResizeEnd]
+    [isEditing, onResizeStart, onResizeMove, onResizeEnd, isResizing, resizeTopDelta, resizeHeightDelta]
   );
 
   // Create gestures for each handle - depends on createResizeGesture callback
