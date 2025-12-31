@@ -12,11 +12,10 @@ import {
   TouchableOpacity,
   Dimensions,
   LayoutChangeEvent,
-  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { GestureDetector } from 'react-native-gesture-handler';
-import Animated from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, { runOnJS } from 'react-native-reanimated';
 import { Event } from '../../lib/api/types';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import EventBlock, { PIXELS_PER_HOUR } from './EventBlock';
@@ -52,6 +51,7 @@ export default function DayView({
   // Track scroll offset for fixed placeholder positioning
   const [scrollOffset, setScrollOffset] = useState(0);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
+
 
   const [draggingEvent, setDraggingEvent] = useState<Event | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
@@ -391,6 +391,25 @@ export default function DayView({
       cancelDrag();
     }
   }, [isPlaceholderEditing, cancelDrag]);
+
+  // Tap gesture for detecting taps on the time grid (for dismissing placeholder)
+  // This gesture properly yields to scroll - only fires on true taps with no movement
+  const tapOutsideGesture = useMemo(
+    () =>
+      Gesture.Tap()
+        .enabled(isPlaceholderEditing)
+        .maxDuration(250) // Only quick taps, not long presses
+        .maxDistance(5) // Fail immediately if finger moves (allows scroll to take over)
+        .onEnd(() => {
+          'worklet';
+          runOnJS(handleTapOutside)();
+        }),
+    [isPlaceholderEditing, handleTapOutside]
+  );
+
+  // TODO: Re-add tap-outside detection once scroll is working
+  // For now, just use the drag-to-create gesture
+  const combinedGridGesture = composedGesture;
 
   // Handle scroll events for fixed placeholder positioning
   const handleScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
@@ -751,6 +770,130 @@ export default function DayView({
     }, 100);
   }, []);
 
+
+  // Render time grid content - extracted to avoid duplication in conditional render
+  const renderTimeGridContent = useCallback(() => (
+    <>
+      {/* Hour rows */}
+      {HOURS.map((hour) => (
+        <TouchableOpacity
+          key={hour}
+          style={styles.hourRow}
+          onPress={() => onTimeSlotPress?.(date, hour)}
+          activeOpacity={0.7}
+          disabled={isPlaceholderEditing}
+        >
+          <View style={styles.hourLabel}>
+            <Text style={styles.hourText}>{formatHour(hour)}</Text>
+          </View>
+          <View style={styles.hourSlot}>
+            <View style={styles.hourLine} />
+            <View style={styles.halfHourLine} />
+          </View>
+        </TouchableOpacity>
+      ))}
+
+      {/* Current time indicator */}
+      {currentHourPosition !== null && (
+        <View style={[styles.currentTimeIndicator, { top: currentHourPosition }]}>
+          <View style={styles.currentTimeDot} />
+          <View style={styles.currentTimeLine} />
+        </View>
+      )}
+
+      {/* Conflict zone highlights - shown during drag/resize */}
+      {conflictZones.map((zone) => (
+        <View
+          key={`conflict-${zone.id}`}
+          style={[
+            styles.conflictZone,
+            {
+              top: zone.top,
+              height: zone.height,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <View style={styles.conflictZoneInner}>
+            <Ionicons name="warning-outline" size={16} color="#ef4444" />
+          </View>
+        </View>
+      ))}
+
+      {/* Placeholder for drag-to-create - rendered in scroll during initial drag only */}
+      {dragState && placeholderPosition && isCreating && !isPlaceholderEditing && (
+        <PlaceholderContainer
+          visible={true}
+          startTime={(() => {
+            const d = new Date(dragState.startDate);
+            d.setHours(dragState.startHour, dragState.startMinutes, 0, 0);
+            return d;
+          })()}
+          endTime={(() => {
+            const d = new Date(dragState.endDate);
+            d.setHours(dragState.endHour, dragState.endMinutes, 0, 0);
+            return d;
+          })()}
+          onComplete={() => {}}
+          onCancel={cancelDrag}
+          viewType="day"
+          top={placeholderPosition.top}
+          height={placeholderPosition.height}
+          isEditing={false}
+        />
+      )}
+
+      {/* Events */}
+      {events.map((event) => {
+        const layout = getEventLayout(event);
+        const isDragging = draggingEvent?.id === event.id;
+        const isResizing = resizingEvent?.id === event.id;
+
+        // Adjust layout based on drag/resize
+        let adjustedTop = layout.top;
+        let adjustedHeight = layout.height;
+
+        if (isDragging) {
+          adjustedTop += dragOffset;
+        }
+
+        if (isResizing) {
+          if (resizeHandle === 'top' || resizeHandle === 'top-left' || resizeHandle === 'top-right') {
+            adjustedTop += resizeOffset;
+            adjustedHeight -= resizeOffset;
+          } else if (resizeHandle === 'bottom' || resizeHandle === 'bottom-left' || resizeHandle === 'bottom-right') {
+            adjustedHeight += resizeOffset;
+          }
+        }
+
+        return (
+          <EventBlock
+            key={event.id}
+            event={event}
+            topOffset={adjustedTop}
+            height={adjustedHeight}
+            isDragging={isDragging}
+            isResizing={isResizing}
+            onDragStart={handleEventDragStart}
+            onDragMove={handleEventDragMove}
+            onDragEnd={handleEventDragEnd}
+            onResizeStart={handleResizeStart}
+            onResizeMove={handleResizeMove}
+            onResizeEnd={handleResizeEnd}
+            onPress={onEventPress}
+          />
+        );
+      })}
+    </>
+  ), [
+    styles, date, onTimeSlotPress, isPlaceholderEditing, formatHour,
+    currentHourPosition, conflictZones, dragState, placeholderPosition,
+    isCreating, cancelDrag, events, draggingEvent, resizingEvent,
+    dragOffset, resizeOffset, resizeHandle, getEventLayout,
+    handleEventDragStart, handleEventDragMove, handleEventDragEnd,
+    handleResizeStart, handleResizeMove, handleResizeEnd, onEventPress,
+  ]);
+
   return (
     <View style={styles.container}>
       {/* Header with date */}
@@ -775,133 +918,23 @@ export default function DayView({
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
-        <GestureDetector gesture={composedGesture}>
-          <Animated.View style={styles.timeGrid} onLayout={handleGridLayout}>
-            {/* Hour rows */}
-            {HOURS.map((hour) => (
-              <TouchableOpacity
-                key={hour}
-                style={styles.hourRow}
-                onPress={() => onTimeSlotPress?.(date, hour)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.hourLabel}>
-                  <Text style={styles.hourText}>{formatHour(hour)}</Text>
-                </View>
-                <View style={styles.hourSlot}>
-                  <View style={styles.hourLine} />
-                  <View style={styles.halfHourLine} />
-                </View>
-              </TouchableOpacity>
-            ))}
-
-            {/* Current time indicator */}
-            {currentHourPosition !== null && (
-              <View style={[styles.currentTimeIndicator, { top: currentHourPosition }]}>
-                <View style={styles.currentTimeDot} />
-                <View style={styles.currentTimeLine} />
-              </View>
-            )}
-
-            {/* Conflict zone highlights - shown during drag/resize */}
-            {conflictZones.map((zone) => (
-              <View
-                key={`conflict-${zone.id}`}
-                style={[
-                  styles.conflictZone,
-                  {
-                    top: zone.top,
-                    height: zone.height,
-                  },
-                ]}
-                pointerEvents="none"
-              >
-                <View style={styles.conflictZoneInner}>
-                  <Ionicons name="warning-outline" size={16} color="#ef4444" />
-                </View>
-              </View>
-            ))}
-
-            {/* Placeholder for drag-to-create - rendered in scroll during initial drag only */}
-            {dragState && placeholderPosition && isCreating && !isPlaceholderEditing && (
-              <PlaceholderContainer
-                visible={true}
-                startTime={(() => {
-                  const d = new Date(dragState.startDate);
-                  d.setHours(dragState.startHour, dragState.startMinutes, 0, 0);
-                  return d;
-                })()}
-                endTime={(() => {
-                  const d = new Date(dragState.endDate);
-                  d.setHours(dragState.endHour, dragState.endMinutes, 0, 0);
-                  return d;
-                })()}
-                onComplete={() => {}}
-                onCancel={cancelDrag}
-                viewType="day"
-                top={placeholderPosition.top}
-                height={placeholderPosition.height}
-                isEditing={false}
-              />
-            )}
-
-            {/* Events */}
-            {events.map((event) => {
-              const layout = getEventLayout(event);
-              const isDragging = draggingEvent?.id === event.id;
-              const isResizing = resizingEvent?.id === event.id;
-
-              // Adjust layout based on drag/resize
-              let adjustedTop = layout.top;
-              let adjustedHeight = layout.height;
-
-              if (isDragging) {
-                adjustedTop += dragOffset;
-              }
-
-              if (isResizing) {
-                // Top handles (top, top-left, top-right) adjust top and height
-                if (resizeHandle === 'top' || resizeHandle === 'top-left' || resizeHandle === 'top-right') {
-                  adjustedTop += resizeOffset;
-                  adjustedHeight -= resizeOffset;
-                }
-                // Bottom handles (bottom, bottom-left, bottom-right) adjust height only
-                else if (resizeHandle === 'bottom' || resizeHandle === 'bottom-left' || resizeHandle === 'bottom-right') {
-                  adjustedHeight += resizeOffset;
-                }
-              }
-
-              return (
-                <EventBlock
-                  key={event.id}
-                  event={event}
-                  topOffset={adjustedTop}
-                  height={adjustedHeight}
-                  isDragging={isDragging}
-                  isResizing={isResizing}
-                  onDragStart={handleEventDragStart}
-                  onDragMove={handleEventDragMove}
-                  onDragEnd={handleEventDragEnd}
-                  onResizeStart={handleResizeStart}
-                  onResizeMove={handleResizeMove}
-                  onResizeEnd={handleResizeEnd}
-                  onPress={onEventPress}
-                />
-              );
-            })}
-          </Animated.View>
-        </GestureDetector>
-      </ScrollView>
+          {/* Conditionally wrap with GestureDetector - skip during editing to allow scroll */}
+          {isPlaceholderEditing ? (
+            <Animated.View style={styles.timeGrid} onLayout={handleGridLayout}>
+              {renderTimeGridContent()}
+            </Animated.View>
+          ) : (
+            <GestureDetector gesture={combinedGridGesture}>
+              <Animated.View style={styles.timeGrid} onLayout={handleGridLayout}>
+                {renderTimeGridContent()}
+              </Animated.View>
+            </GestureDetector>
+          )}
+        </ScrollView>
 
         {/* Fixed overlay for placeholder during editing mode - stays visible during scroll */}
         {isPlaceholderEditing && dragState && fixedPlaceholderPosition && (
           <>
-            {/* Tap outside overlay to dismiss placeholder */}
-            <Pressable
-              style={styles.fixedTapOutsideOverlay}
-              onPress={handleTapOutside}
-            />
-
             {/* Off-screen indicator when placeholder is completely scrolled away */}
             {fixedPlaceholderPosition.isCompletelyOffScreen && (
               <TouchableOpacity
@@ -1109,10 +1142,6 @@ const createStyles = (tokens: ThemeTokens) =>
     scrollViewContainer: {
       flex: 1,
       position: 'relative',
-    },
-    fixedTapOutsideOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      zIndex: 40,
     },
     fixedPlaceholderWrapper: {
       position: 'absolute',

@@ -164,12 +164,20 @@ export default function PlaceholderContainer({
   };
 
   // Create resize gesture for a handle
+  // Note: hitSlop is kept small to prevent capturing touches outside the placeholder
+  // The handle itself is 24px tall which provides adequate touch target
+  // These gestures should NOT interfere with scroll because:
+  // 1. They're only attached to small handle areas (not the whole scroll area)
+  // 2. The placeholder wrapper has pointerEvents="box-none" allowing touches to pass through
+  // 3. failOffsetX causes the gesture to fail when horizontal movement exceeds threshold
   const createResizeGesture = (handle: ResizeHandleType): GestureType => {
     return Gesture.Pan()
       .enabled(isEditing)
-      .minDistance(0)
-      .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }) // Larger touch target
-      .shouldCancelWhenOutside(false) // Keep tracking even if finger moves outside
+      .minDistance(0) // Activate immediately to ensure resize feels responsive
+      .activeOffsetY([-5, 5]) // Only activate after 5px vertical movement
+      .failOffsetX([-15, 15]) // Fail if horizontal movement exceeds 15px (allow scroll)
+      .hitSlop({ top: 8, bottom: 8, left: 0, right: 0 }) // Vertical-only expansion, minimal
+      .shouldCancelWhenOutside(true) // Cancel if finger moves outside handle area
       .onBegin(() => {
         'worklet';
         console.log('[PlaceholderContainer] Gesture onBegin:', handle);
@@ -230,6 +238,9 @@ export default function PlaceholderContainer({
 
   // Create body drag gesture (long-press + pan)
   // This allows dragging the entire placeholder to reposition it
+  // The long press activation (400ms) prevents interfering with scroll:
+  // - Quick drags will be handled as scroll by the underlying ScrollView
+  // - Only intentional long-press + drag will move the placeholder
   const bodyDragGesture = useMemo(() => {
     return Gesture.Pan()
       .enabled(isEditing && !!onDragMove)
@@ -291,12 +302,15 @@ export default function PlaceholderContainer({
       pointerEvents={isEditing ? 'auto' : 'none'}
     >
       {/* Top resize handle - hidden when clipped at top */}
+      {/* Outer container spans full width for centering, inner touchable area is constrained */}
       {showTopHandle && (
-        <GestureDetector gesture={topResizeGesture}>
-          <View style={styles.resizeHandleTop} pointerEvents="box-only">
-            <View style={[styles.handleBar, { backgroundColor: tokens.accent }]} />
-          </View>
-        </GestureDetector>
+        <View style={styles.resizeHandleContainer} pointerEvents="box-none">
+          <GestureDetector gesture={topResizeGesture}>
+            <View style={styles.resizeHandleTouchArea}>
+              <View style={[styles.handleBar, { backgroundColor: tokens.accent }]} />
+            </View>
+          </GestureDetector>
+        </View>
       )}
 
       {/* Left resize handle (week view only for multi-day) */}
@@ -392,12 +406,15 @@ export default function PlaceholderContainer({
       )}
 
       {/* Bottom resize handle - hidden when clipped at bottom */}
+      {/* Outer container spans full width for centering, inner touchable area is constrained */}
       {showBottomHandle && (
-        <GestureDetector gesture={bottomResizeGesture}>
-          <View style={styles.resizeHandleBottom} pointerEvents="box-only">
-            <View style={[styles.handleBar, { backgroundColor: tokens.accent }]} />
-          </View>
-        </GestureDetector>
+        <View style={[styles.resizeHandleContainer, styles.resizeHandleContainerBottom]} pointerEvents="box-none">
+          <GestureDetector gesture={bottomResizeGesture}>
+            <View style={styles.resizeHandleTouchArea}>
+              <View style={[styles.handleBar, { backgroundColor: tokens.accent }]} />
+            </View>
+          </GestureDetector>
+        </View>
       )}
     </Animated.View>
   );
@@ -478,8 +495,8 @@ const createStyles = (tokens: ThemeTokens) =>
       opacity: 0.7,
       marginTop: 2,
     },
-    // Resize handles - larger touch targets for better usability
-    resizeHandleTop: {
+    // Resize handle container - spans full width for centering, but doesn't capture touches
+    resizeHandleContainer: {
       position: 'absolute',
       top: -12,
       left: 0,
@@ -487,17 +504,18 @@ const createStyles = (tokens: ThemeTokens) =>
       height: 24,
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 100, // Higher z-index to ensure it's on top
+      zIndex: 100,
     },
-    resizeHandleBottom: {
-      position: 'absolute',
+    resizeHandleContainerBottom: {
+      top: undefined,
       bottom: -12,
-      left: 0,
-      right: 0,
+    },
+    // Constrained touch area for resize gestures - prevents capturing scroll gestures
+    resizeHandleTouchArea: {
+      width: 60, // Handle bar (24px) + touch padding (18px each side)
       height: 24,
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 100,
     },
     resizeHandleLeft: {
       position: 'absolute',
