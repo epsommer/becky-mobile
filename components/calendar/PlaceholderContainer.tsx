@@ -178,18 +178,16 @@ export default function PlaceholderContainer({
     (handle: ResizeHandleType): GestureType => {
       return Gesture.Pan()
         .enabled(isEditing)
-        .minDistance(0) // Activate immediately to ensure resize feels responsive
-        .activeOffsetY([-5, 5]) // Only activate after 5px vertical movement
-        .failOffsetX([-15, 15]) // Fail if horizontal movement exceeds 15px (allow scroll)
-        .hitSlop({ top: 8, bottom: 8, left: 0, right: 0 }) // Vertical-only expansion, minimal
-        .shouldCancelWhenOutside(true) // Cancel if finger moves outside handle area
+        .minDistance(1) // Activate after 1px movement for responsive feel
+        .failOffsetX([-20, 20]) // Fail if horizontal movement exceeds 20px (allow scroll)
+        .hitSlop({ top: 12, bottom: 12, left: 8, right: 8 }) // Expand touch area for easier grabbing
         .onBegin(() => {
           'worklet';
-          console.log('[PlaceholderContainer] Gesture onBegin:', handle);
+          console.log('[PlaceholderContainer] Resize onBegin:', handle);
         })
         .onStart(() => {
           'worklet';
-          console.log('[PlaceholderContainer] Gesture onStart:', handle);
+          console.log('[PlaceholderContainer] Resize onStart:', handle);
           if (onResizeStart) {
             runOnJS(onResizeStart)(handle);
           }
@@ -197,13 +195,15 @@ export default function PlaceholderContainer({
         .onUpdate((event) => {
           'worklet';
           // onUpdate fires continuously during active gesture
+          // Log to debug resize tracking
+          console.log('[PlaceholderContainer] Resize onUpdate:', handle, 'translationY:', event.translationY);
           if (onResizeMove) {
             runOnJS(onResizeMove)(handle, { x: event.translationX, y: event.translationY });
           }
         })
         .onEnd(() => {
           'worklet';
-          console.log('[PlaceholderContainer] Gesture onEnd:', handle);
+          console.log('[PlaceholderContainer] Resize onEnd:', handle);
           if (onResizeEnd) {
             runOnJS(onResizeEnd)(handle);
           }
@@ -329,7 +329,7 @@ export default function PlaceholderContainer({
         </GestureDetector>
       )}
 
-      {/* Body drag gesture wrapper - wraps inner content for drag-to-move */}
+      {/* Body drag gesture wrapper - wraps ONLY the content area for drag-to-move */}
       <GestureDetector gesture={bodyDragGesture}>
         <Animated.View style={[styles.innerContainer, animatedDragStyle]}>
           {/* Time display - always visible */}
@@ -368,40 +368,40 @@ export default function PlaceholderContainer({
           {displayMode === 'full' && !title && !isEditing && (
             <Text style={styles.newEventText}>New Event</Text>
           )}
-
-          {/* Action buttons in editing mode - placed outside drag zone */}
-          {showActionButtons && (
-            <View style={styles.actionButtons} pointerEvents="box-none">
-              <TouchableOpacity
-                onPress={onConfirm}
-                style={[styles.actionButton, styles.confirmButton]}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="checkmark" size={18} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={onCancel}
-                style={[styles.actionButton, styles.cancelButton]}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close" size={18} color="white" />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Inline action buttons for compact mode */}
-          {isEditing && !showActionButtons && (
-            <View style={styles.inlineActions} pointerEvents="box-none">
-              <TouchableOpacity onPress={onConfirm} activeOpacity={0.7}>
-                <Ionicons name="checkmark-circle" size={20} color={tokens.accent} />
-              </TouchableOpacity>
-            <TouchableOpacity onPress={onCancel} activeOpacity={0.7}>
-              <Ionicons name="close-circle" size={20} color={tokens.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        )}
         </Animated.View>
       </GestureDetector>
+
+      {/* Action buttons - OUTSIDE gesture detector to receive touch events */}
+      {showActionButtons && (
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            onPress={onConfirm}
+            style={[styles.actionButton, styles.confirmButton]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="checkmark" size={18} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onCancel}
+            style={[styles.actionButton, styles.cancelButton]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={18} color="white" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Inline action buttons for compact mode - OUTSIDE gesture detector */}
+      {isEditing && !showActionButtons && (
+        <View style={styles.inlineActions}>
+          <TouchableOpacity onPress={onConfirm} activeOpacity={0.7}>
+            <Ionicons name="checkmark-circle" size={20} color={tokens.accent} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onCancel} activeOpacity={0.7}>
+            <Ionicons name="close-circle" size={20} color={tokens.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Right resize handle (week view only for multi-day) */}
       {showResizeHandles && viewType === 'week' && (

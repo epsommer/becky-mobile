@@ -8,14 +8,19 @@ import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   TouchableOpacity,
   Dimensions,
   LayoutChangeEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, { runOnJS } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  useSharedValue,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useDerivedValue,
+} from 'react-native-reanimated';
 import { Event } from '../../lib/api/types';
 import { ThemeTokens, useTheme } from '../../theme/ThemeContext';
 import EventBlock, { PIXELS_PER_HOUR } from './EventBlock';
@@ -46,11 +51,15 @@ export default function DayView({
 }: DayViewProps) {
   const { tokens } = useTheme();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<Animated.ScrollView>(null);
 
   // Track scroll offset for fixed placeholder positioning
+  // Use shared value for smooth UI-thread updates (no JS bridge delay)
+  const scrollOffsetShared = useSharedValue(0);
+  // Also keep React state for conditional rendering logic (off-screen indicator)
   const [scrollOffset, setScrollOffset] = useState(0);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
+  const scrollViewHeightShared = useSharedValue(0);
 
 
   const [draggingEvent, setDraggingEvent] = useState<Event | null>(null);
@@ -416,14 +425,27 @@ export default function DayView({
   );
 
   // Handle scroll events for fixed placeholder positioning
-  const handleScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
-    setScrollOffset(event.nativeEvent.contentOffset.y);
-  }, []);
+  // Use animated scroll handler for smooth UI-thread updates
+  // Also update React state periodically for conditional rendering logic
+  const lastStateUpdateRef = useRef(0);
+  const animatedScrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollOffsetShared.value = event.contentOffset.y;
+      // Throttle state updates to reduce re-renders (every 100ms)
+      const now = Date.now();
+      if (now - lastStateUpdateRef.current > 100) {
+        lastStateUpdateRef.current = now;
+        runOnJS(setScrollOffset)(event.contentOffset.y);
+      }
+    },
+  });
 
   // Handle scroll view layout to get visible height
   const handleScrollViewLayout = useCallback((event: LayoutChangeEvent) => {
-    setScrollViewHeight(event.nativeEvent.layout.height);
-  }, []);
+    const height = event.nativeEvent.layout.height;
+    setScrollViewHeight(height);
+    scrollViewHeightShared.value = height;
+  }, [scrollViewHeightShared]);
 
   // Calculate placeholder position from drag state (position within the grid)
   const placeholderPosition = useMemo(() => {
@@ -492,6 +514,43 @@ export default function DayView({
       originalTop: placeholderTopInGrid,
     };
   }, [placeholderPosition, scrollOffset, scrollViewHeight, isPlaceholderEditing]);
+
+  // Animated style for smooth placeholder positioning during scroll
+  // This runs on the UI thread for instant response (no JS bridge delay)
+  const animatedPlaceholderStyle = useAnimatedStyle(() => {
+    if (!placeholderPosition || !isPlaceholderEditing) {
+      return { top: 0, height: 0 };
+    }
+
+    const gridPaddingTop = 20;
+    const placeholderTopInGrid = placeholderPosition.top + gridPaddingTop;
+    const placeholderHeight = placeholderPosition.height;
+
+    // Calculate visible position relative to current scroll
+    const visibleTop = placeholderTopInGrid - scrollOffsetShared.value;
+    const visibleBottom = visibleTop + placeholderHeight;
+
+    // Calculate clipping for smooth animation
+    let clippedTop = visibleTop;
+    let clippedHeight = placeholderHeight;
+
+    // Clip at top edge
+    if (visibleTop < 0) {
+      const topClip = -visibleTop;
+      clippedTop = 0;
+      clippedHeight -= topClip;
+    }
+    // Clip at bottom edge
+    if (visibleBottom > scrollViewHeightShared.value && scrollViewHeightShared.value > 0) {
+      const bottomClip = visibleBottom - scrollViewHeightShared.value;
+      clippedHeight -= bottomClip;
+    }
+
+    return {
+      top: clippedTop,
+      height: Math.max(0, clippedHeight),
+    };
+  }, [placeholderPosition, isPlaceholderEditing]);
 
   // Scroll to placeholder location
   const scrollToPlaceholder = useCallback(() => {
@@ -914,12 +973,12 @@ export default function DayView({
 
       {/* Time grid with gesture detection */}
       <View style={styles.scrollViewContainer} onLayout={handleScrollViewLayout}>
-        <ScrollView
+        <Animated.ScrollView
           ref={scrollViewRef}
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           scrollEnabled={!isInteracting}
-          onScroll={handleScroll}
+          onScroll={animatedScrollHandler}
           scrollEventThrottle={16}
         >
           {/* Conditionally wrap with GestureDetector
@@ -938,7 +997,7 @@ export default function DayView({
               </Animated.View>
             </GestureDetector>
           )}
-        </ScrollView>
+        </Animated.ScrollView>
 
         {/* Fixed overlay for placeholder during editing mode - stays visible during scroll */}
         {isPlaceholderEditing && dragState && fixedPlaceholderPosition && (
@@ -972,14 +1031,12 @@ export default function DayView({
             )}
 
             {/* Fixed placeholder - visible and interactive regardless of scroll */}
+            {/* Uses animated style for smooth scroll tracking on UI thread */}
             {!fixedPlaceholderPosition.isCompletelyOffScreen && (
-              <View
+              <Animated.View
                 style={[
                   styles.fixedPlaceholderWrapper,
-                  {
-                    top: fixedPlaceholderPosition.overlayTop,
-                    height: fixedPlaceholderPosition.overlayHeight,
-                  },
+                  animatedPlaceholderStyle,
                 ]}
                 pointerEvents="box-none"
               >
@@ -1014,7 +1071,7 @@ export default function DayView({
                   topClipAmount={fixedPlaceholderPosition.topClipAmount}
                   bottomClipAmount={fixedPlaceholderPosition.bottomClipAmount}
                 />
-              </View>
+              </Animated.View>
             )}
           </>
         )}
