@@ -150,9 +150,18 @@ export function useDragToCreate({
 
   // Update placeholder bounds (for resize operations)
   const updatePlaceholderBounds = useCallback((bounds: Partial<DragState>) => {
-    if (!dragStateRef.current) return;
+    if (!dragStateRef.current) {
+      console.log('[useDragToCreate] updatePlaceholderBounds: No current state!');
+      return;
+    }
 
     const currentState = dragStateRef.current;
+    console.log('[useDragToCreate] updatePlaceholderBounds - before:', {
+      currentDuration: currentState.durationMinutes,
+      currentEnd: `${currentState.endHour}:${currentState.endMinutes}`,
+      boundsToApply: bounds,
+    });
+
     const newState: DragState = {
       ...currentState,
       ...bounds,
@@ -164,6 +173,11 @@ export function useDragToCreate({
       const startMinutesTotal = newState.startHour * 60 + newState.startMinutes;
       const endMinutesTotal = newState.endHour * 60 + newState.endMinutes;
       newState.durationMinutes = Math.max(MIN_DURATION_MINUTES, endMinutesTotal - startMinutesTotal);
+      console.log('[useDragToCreate] updatePlaceholderBounds - calculated:', {
+        startMinutesTotal,
+        endMinutesTotal,
+        newDuration: newState.durationMinutes,
+      });
     }
 
     // Update multi-day state if daySpan changed
@@ -185,7 +199,17 @@ export function useDragToCreate({
       // Add to initial 15-minute duration
       const newDuration = MIN_DURATION_MINUTES + snappedMinutes;
       // Clamp to valid range
-      return clampDuration(newDuration, MIN_DURATION_MINUTES, MAX_DURATION_MINUTES);
+      const clampedDuration = clampDuration(newDuration, MIN_DURATION_MINUTES, MAX_DURATION_MINUTES);
+
+      console.log('[useDragToCreate] calculateDuration:', {
+        translationY,
+        rawMinutes,
+        snappedMinutes,
+        newDuration,
+        clampedDuration,
+      });
+
+      return clampedDuration;
     },
     [pixelsPerHour, snapMinutes]
   );
@@ -264,7 +288,9 @@ export function useDragToCreate({
   // Handle long press start
   const handleLongPressStart = useCallback(
     (y: number, x: number) => {
+      // Check enabled AND not in editing mode (editing mode = resize handles active)
       if (!enabled) return;
+      if (dragStateRef.current?.isEditing) return;
 
       // Trigger haptic feedback
       triggerLongPressHaptic();
@@ -331,6 +357,14 @@ export function useDragToCreate({
         daySpan: 1,
         startDayIndex: dayIndex,
       };
+
+      console.log('[useDragToCreate] Long press start:', {
+        y,
+        gridTop,
+        calculatedHour: hour,
+        calculatedMinutes: minutes,
+        startY: y,
+      });
 
       // Handle end minutes overflow
       if (newState.endMinutes >= 60) {
@@ -455,36 +489,49 @@ export function useDragToCreate({
     // NOTE: We do NOT call onDragEnd here - that happens when user confirms
   }, [isDraggingShared, onEditingStart]);
 
+  // Disable gestures when placeholder is in editing mode (to allow resize gestures to work)
+  const isEditingMode = dragState?.isEditing ?? false;
+  const gesturesEnabled = enabled && !isEditingMode;
+
   // Long press gesture
   const longPressGesture = useMemo(
     () =>
       Gesture.LongPress()
         .minDuration(LONG_PRESS_DURATION_MS)
-        .enabled(enabled)
+        .enabled(gesturesEnabled)
         .onStart((event) => {
           runOnJS(handleLongPressStart)(event.y, event.x);
         }),
-    [enabled, handleLongPressStart]
+    [gesturesEnabled, handleLongPressStart]
   );
 
   // Pan gesture (activated after long press)
+  // NOTE: Removed activeOffsetY/X to eliminate delay between long press and pan tracking
+  // This ensures translationY accurately reflects movement from long press start
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
         .activateAfterLongPress(LONG_PRESS_DURATION_MS)
-        .enabled(enabled)
-        .activeOffsetY([-5, 5])
-        .activeOffsetX([-5, 5])
+        .enabled(gesturesEnabled)
+        .minDistance(0) // Activate immediately after long press, no additional distance required
+        .onStart((event) => {
+          'worklet';
+          console.log('[useDragToCreate] Pan onStart - absoluteY:', event.absoluteY);
+        })
         .onUpdate((event) => {
+          'worklet';
+          console.log('[useDragToCreate] Pan onUpdate - translationY:', event.translationY, 'absoluteY:', event.absoluteY);
           runOnJS(handlePanUpdate)(event.translationY, event.translationX, event.absoluteX);
         })
         .onEnd(() => {
+          'worklet';
           runOnJS(handleDragEnd)();
         })
         .onFinalize(() => {
+          'worklet';
           // Handle cancellation if needed
         }),
-    [enabled, handlePanUpdate, handleDragEnd]
+    [gesturesEnabled, handlePanUpdate, handleDragEnd]
   );
 
   // Compose gestures to run simultaneously
