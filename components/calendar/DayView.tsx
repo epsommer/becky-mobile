@@ -3,7 +3,7 @@
  * Includes conflict highlighting during drag operations
  * Supports long-press drag-to-create for new events with persistent placeholder
  */
-import React, { useMemo, useState, useCallback, useRef } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -48,6 +48,10 @@ export default function DayView({
   const { tokens } = useTheme();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Track scroll offset for fixed placeholder positioning
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [scrollViewHeight, setScrollViewHeight] = useState(0);
 
   const [draggingEvent, setDraggingEvent] = useState<Event | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
@@ -122,64 +126,123 @@ export default function DayView({
     enabled: !draggingEvent && !resizingEvent,
   });
 
+  // Keep a ref to dragState to avoid stale closure issues in gesture callbacks
+  const dragStateRef = useRef(dragState);
+  useEffect(() => {
+    dragStateRef.current = dragState;
+  }, [dragState]);
+
   // Handle placeholder resize callbacks
   const handlePlaceholderResizeStart = useCallback((handle: ResizeHandleType) => {
     console.log('[DayView] Placeholder resize start:', handle);
-    // Capture initial bounds when resize begins
-    if (dragState) {
+    // Use ref to get CURRENT dragState (avoids stale closure)
+    const currentDragState = dragStateRef.current;
+    if (currentDragState) {
       initialPlaceholderBoundsRef.current = {
-        startHour: dragState.startHour,
-        startMinutes: dragState.startMinutes,
-        endHour: dragState.endHour,
-        endMinutes: dragState.endMinutes,
+        startHour: currentDragState.startHour,
+        startMinutes: currentDragState.startMinutes,
+        endHour: currentDragState.endHour,
+        endMinutes: currentDragState.endMinutes,
       };
       console.log('[DayView] Captured initial bounds:', initialPlaceholderBoundsRef.current);
     }
-  }, [dragState]);
+  }, []);
 
   const handlePlaceholderResizeMove = useCallback((handle: ResizeHandleType, delta: { x: number; y: number }) => {
     // IMPORTANT: delta.y is CUMULATIVE translation from gesture start, not incremental
     // We must calculate new bounds from INITIAL bounds + translation, not current bounds + delta
-    if (!initialPlaceholderBoundsRef.current) return;
+
+    // Race condition protection: if onStart hasn't finished yet, initialize bounds here
+    if (!initialPlaceholderBoundsRef.current) {
+      const currentDragState = dragStateRef.current;
+      if (!currentDragState) return;
+      initialPlaceholderBoundsRef.current = {
+        startHour: currentDragState.startHour,
+        startMinutes: currentDragState.startMinutes,
+        endHour: currentDragState.endHour,
+        endMinutes: currentDragState.endMinutes,
+      };
+      console.log('[DayView] Initialized bounds in move handler (race condition):', initialPlaceholderBoundsRef.current);
+    }
 
     const initialBounds = initialPlaceholderBoundsRef.current;
 
-    // Convert cumulative pixel translation to minutes (NO snapping during drag for smooth tracking)
-    const minutesDelta = Math.round((delta.y / PIXELS_PER_HOUR) * 60);
+    // Convert cumulative pixel translation to RAW minutes (not snapped yet)
+    const rawMinutesDelta = (delta.y / PIXELS_PER_HOUR) * 60;
 
     let newBounds: Partial<DragState> = {};
+
+    // Get current state for minimum duration constraints
+    // (user may have resized the OTHER handle in a previous gesture during this editing session)
+    const currentDragState = dragStateRef.current;
+    const currentStartMinutes = currentDragState
+      ? currentDragState.startHour * 60 + currentDragState.startMinutes
+      : initialBounds.startHour * 60 + initialBounds.startMinutes;
+    const currentEndMinutes = currentDragState
+      ? currentDragState.endHour * 60 + currentDragState.endMinutes
+      : initialBounds.endHour * 60 + initialBounds.endMinutes;
 
     switch (handle) {
       case 'top': {
         // Calculate new start time from INITIAL bounds + cumulative translation
         const initialStartMinutes = initialBounds.startHour * 60 + initialBounds.startMinutes;
-        const initialEndMinutes = initialBounds.endHour * 60 + initialBounds.endMinutes;
-        const newStartMinutes = initialStartMinutes + minutesDelta;
+        const rawNewStartMinutes = initialStartMinutes + rawMinutesDelta;
+
+        // Snap to 15-minute intervals, ensuring we NEVER exceed finger position:
+        // - Dragging UP (negative delta, expanding upward): use Math.ceil to snap DOWN (toward original)
+        // - Dragging DOWN (positive delta, shrinking): use Math.floor to snap DOWN (toward finger)
+        // The snapped value should always be between the original position and the finger
+        let snappedStartMinutes: number;
+        if (rawMinutesDelta < 0) {
+          // Expanding upward - snap toward the original (ceiling = closer to original start)
+          snappedStartMinutes = Math.ceil(rawNewStartMinutes / 15) * 15;
+        } else {
+          // Shrinking from top - snap toward the finger (floor = below finger but toward original end)
+          snappedStartMinutes = Math.floor(rawNewStartMinutes / 15) * 15;
+        }
 
         // Ensure minimum 15 min duration and clamp to valid range
-        const clampedStartMinutes = Math.min(newStartMinutes, initialEndMinutes - 15);
+        // Use CURRENT end time (not initial) in case user resized the bottom handle previously
+        const maxStartMinutes = currentEndMinutes - 15; // Can't get closer than 15min from current end
+        const clampedStartMinutes = Math.min(snappedStartMinutes, maxStartMinutes);
         const clampedStart = Math.max(0, clampedStartMinutes);
 
         newBounds = {
           startHour: Math.floor(clampedStart / 60),
           startMinutes: clampedStart % 60,
         };
+        console.log('[DayView] Top resize:', { rawDelta: rawMinutesDelta, rawNew: rawNewStartMinutes, snapped: snappedStartMinutes, final: clampedStart });
         break;
       }
       case 'bottom': {
         // Calculate new end time from INITIAL bounds + cumulative translation
-        const initialStartMinutes = initialBounds.startHour * 60 + initialBounds.startMinutes;
         const initialEndMinutes = initialBounds.endHour * 60 + initialBounds.endMinutes;
-        const newEndMinutes = initialEndMinutes + minutesDelta;
+        const rawNewEndMinutes = initialEndMinutes + rawMinutesDelta;
+
+        // Snap to 15-minute intervals, ensuring we NEVER exceed finger position:
+        // - Dragging DOWN (positive delta, expanding): use Math.floor to snap UP (toward original)
+        // - Dragging UP (negative delta, shrinking): use Math.ceil to snap UP (toward finger)
+        // The snapped value should always be between the original position and the finger
+        let snappedEndMinutes: number;
+        if (rawMinutesDelta > 0) {
+          // Expanding downward - snap toward the original (floor = closer to original end)
+          snappedEndMinutes = Math.floor(rawNewEndMinutes / 15) * 15;
+        } else {
+          // Shrinking from bottom - snap toward the finger (ceil = above finger but toward original start)
+          snappedEndMinutes = Math.ceil(rawNewEndMinutes / 15) * 15;
+        }
 
         // Ensure minimum 15 min duration and clamp to valid range
-        const clampedEndMinutes = Math.max(newEndMinutes, initialStartMinutes + 15);
+        // Use CURRENT start time (not initial) in case user resized the top handle previously
+        const minEndMinutes = currentStartMinutes + 15; // Must be at least 15min after current start
+        const clampedEndMinutes = Math.max(snappedEndMinutes, minEndMinutes);
         const clampedEnd = Math.min(24 * 60, clampedEndMinutes);
 
         newBounds = {
           endHour: Math.floor(clampedEnd / 60),
           endMinutes: clampedEnd % 60,
         };
+        console.log('[DayView] Bottom resize:', { rawDelta: rawMinutesDelta, rawNew: rawNewEndMinutes, snapped: snappedEndMinutes, final: clampedEnd });
         break;
       }
       // Left/right handles not used in day view
@@ -195,32 +258,125 @@ export default function DayView({
   const handlePlaceholderResizeEnd = useCallback((handle: ResizeHandleType) => {
     console.log('[DayView] Placeholder resize end:', handle);
 
-    // Apply 15-minute snapping on gesture end
-    if (dragState) {
-      const currentStartMinutes = dragState.startHour * 60 + dragState.startMinutes;
-      const currentEndMinutes = dragState.endHour * 60 + dragState.endMinutes;
+    // Snapping is now applied in real-time during handlePlaceholderResizeMove
+    // The position should already be at a valid 15-minute interval
+    // No additional snapping needed - this prevents the "snap-back" visual jank
 
-      // Snap to nearest 15-minute increment
-      const snappedStartMinutes = Math.round(currentStartMinutes / 15) * 15;
-      const snappedEndMinutes = Math.round(currentEndMinutes / 15) * 15;
-
-      // Ensure minimum duration after snapping
-      const finalEndMinutes = Math.max(snappedEndMinutes, snappedStartMinutes + 15);
-
-      const snappedBounds = {
-        startHour: Math.floor(snappedStartMinutes / 60),
-        startMinutes: snappedStartMinutes % 60,
-        endHour: Math.floor(finalEndMinutes / 60),
-        endMinutes: finalEndMinutes % 60,
-      };
-
-      console.log('[DayView] Snapping to:', snappedBounds);
-      updatePlaceholderBounds(snappedBounds);
+    // Just log the final position for debugging
+    const currentDragState = dragStateRef.current;
+    if (currentDragState) {
+      console.log('[DayView] Final position:', {
+        start: `${currentDragState.startHour}:${currentDragState.startMinutes.toString().padStart(2, '0')}`,
+        end: `${currentDragState.endHour}:${currentDragState.endMinutes.toString().padStart(2, '0')}`,
+        duration: currentDragState.durationMinutes,
+      });
     }
 
     // Clear the initial bounds ref
     initialPlaceholderBoundsRef.current = null;
-  }, [dragState, updatePlaceholderBounds]);
+  }, []);
+
+  // Handle placeholder drag-to-move start
+  const handlePlaceholderDragMoveStart = useCallback(() => {
+    console.log('[DayView] Placeholder drag-to-move start');
+    // Use ref to get CURRENT dragState (avoids stale closure)
+    const currentDragState = dragStateRef.current;
+    if (currentDragState) {
+      initialPlaceholderBoundsRef.current = {
+        startHour: currentDragState.startHour,
+        startMinutes: currentDragState.startMinutes,
+        endHour: currentDragState.endHour,
+        endMinutes: currentDragState.endMinutes,
+      };
+      console.log('[DayView] Captured initial bounds for drag-move:', initialPlaceholderBoundsRef.current);
+    }
+  }, []);
+
+  // Handle placeholder drag-to-move update
+  const handlePlaceholderDragMove = useCallback((delta: { x: number; y: number }) => {
+    // IMPORTANT: delta.y is CUMULATIVE translation from gesture start
+    // We must calculate new bounds from INITIAL bounds + translation
+
+    // Race condition protection
+    if (!initialPlaceholderBoundsRef.current) {
+      const currentDragState = dragStateRef.current;
+      if (!currentDragState) return;
+      initialPlaceholderBoundsRef.current = {
+        startHour: currentDragState.startHour,
+        startMinutes: currentDragState.startMinutes,
+        endHour: currentDragState.endHour,
+        endMinutes: currentDragState.endMinutes,
+      };
+      console.log('[DayView] Initialized bounds in drag-move handler (race condition)');
+    }
+
+    const initialBounds = initialPlaceholderBoundsRef.current;
+
+    // Calculate the event duration (must be preserved)
+    const durationMinutes =
+      (initialBounds.endHour * 60 + initialBounds.endMinutes) -
+      (initialBounds.startHour * 60 + initialBounds.startMinutes);
+
+    // Convert cumulative pixel translation to minutes
+    const rawMinutesDelta = (delta.y / PIXELS_PER_HOUR) * 60;
+
+    // Snap to 15-minute intervals
+    const snappedMinutesDelta = Math.round(rawMinutesDelta / 15) * 15;
+
+    // Calculate new start time from INITIAL bounds + snapped delta
+    const initialStartMinutes = initialBounds.startHour * 60 + initialBounds.startMinutes;
+    let newStartMinutes = initialStartMinutes + snappedMinutesDelta;
+
+    // Bounds checking: ensure event stays within valid time range (00:00 to 24:00)
+    // Cannot start before 00:00
+    newStartMinutes = Math.max(0, newStartMinutes);
+    // Cannot end after 24:00 (1440 minutes)
+    const maxStartMinutes = 24 * 60 - durationMinutes;
+    newStartMinutes = Math.min(newStartMinutes, maxStartMinutes);
+
+    // Calculate new end time (preserving duration)
+    const newEndMinutes = newStartMinutes + durationMinutes;
+
+    // Convert back to hours and minutes
+    const newStartHour = Math.floor(newStartMinutes / 60);
+    const newStartMins = newStartMinutes % 60;
+    const newEndHour = Math.floor(newEndMinutes / 60);
+    const newEndMins = newEndMinutes % 60;
+
+    console.log('[DayView] Drag-move:', {
+      rawDelta: rawMinutesDelta,
+      snapped: snappedMinutesDelta,
+      newStart: `${newStartHour}:${newStartMins.toString().padStart(2, '0')}`,
+      newEnd: `${newEndHour}:${newEndMins.toString().padStart(2, '0')}`,
+      duration: durationMinutes,
+    });
+
+    // Update both start and end to move the entire event
+    updatePlaceholderBounds({
+      startHour: newStartHour,
+      startMinutes: newStartMins,
+      endHour: newEndHour,
+      endMinutes: newEndMins,
+    });
+  }, [updatePlaceholderBounds]);
+
+  // Handle placeholder drag-to-move end
+  const handlePlaceholderDragMoveEnd = useCallback(() => {
+    console.log('[DayView] Placeholder drag-to-move end');
+
+    // Log the final position for debugging
+    const currentDragState = dragStateRef.current;
+    if (currentDragState) {
+      console.log('[DayView] Final drag-move position:', {
+        start: `${currentDragState.startHour}:${currentDragState.startMinutes.toString().padStart(2, '0')}`,
+        end: `${currentDragState.endHour}:${currentDragState.endMinutes.toString().padStart(2, '0')}`,
+        duration: currentDragState.durationMinutes,
+      });
+    }
+
+    // Clear the initial bounds ref
+    initialPlaceholderBoundsRef.current = null;
+  }, []);
 
   // Handle confirm (checkmark button)
   const handlePlaceholderConfirm = useCallback(() => {
@@ -236,7 +392,17 @@ export default function DayView({
     }
   }, [isPlaceholderEditing, cancelDrag]);
 
-  // Calculate placeholder position from drag state
+  // Handle scroll events for fixed placeholder positioning
+  const handleScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    setScrollOffset(event.nativeEvent.contentOffset.y);
+  }, []);
+
+  // Handle scroll view layout to get visible height
+  const handleScrollViewLayout = useCallback((event: LayoutChangeEvent) => {
+    setScrollViewHeight(event.nativeEvent.layout.height);
+  }, []);
+
+  // Calculate placeholder position from drag state (position within the grid)
   const placeholderPosition = useMemo(() => {
     if (!dragState) return null;
     const top = (dragState.startHour + dragState.startMinutes / 60) * PIXELS_PER_HOUR;
@@ -244,8 +410,80 @@ export default function DayView({
     return { top, height };
   }, [dragState]);
 
+  // Calculate fixed overlay position for placeholder during editing
+  // This ensures the placeholder stays visible even when scrolled
+  const fixedPlaceholderPosition = useMemo(() => {
+    if (!placeholderPosition || !isPlaceholderEditing) return null;
+
+    const gridPaddingTop = 20; // From timeGrid style
+    const placeholderTopInGrid = placeholderPosition.top + gridPaddingTop;
+    const placeholderBottomInGrid = placeholderTopInGrid + placeholderPosition.height;
+
+    // Calculate visible position relative to scroll view
+    const visibleTop = placeholderTopInGrid - scrollOffset;
+    const visibleBottom = placeholderBottomInGrid - scrollOffset;
+
+    // Determine if placeholder is fully, partially, or not visible
+    const isFullyAbove = visibleBottom <= 0;
+    const isFullyBelow = visibleTop >= scrollViewHeight;
+    const isPartiallyVisible = !isFullyAbove && !isFullyBelow;
+
+    // Calculate clipping
+    let clippedTop = visibleTop;
+    let clippedHeight = placeholderPosition.height;
+    let topClipAmount = 0;
+    let bottomClipAmount = 0;
+
+    if (isPartiallyVisible) {
+      // Clip at top edge
+      if (visibleTop < 0) {
+        topClipAmount = -visibleTop;
+        clippedTop = 0;
+        clippedHeight -= topClipAmount;
+      }
+      // Clip at bottom edge
+      if (visibleBottom > scrollViewHeight) {
+        bottomClipAmount = visibleBottom - scrollViewHeight;
+        clippedHeight -= bottomClipAmount;
+      }
+    }
+
+    return {
+      // Position in grid (for rendering inside ScrollView during drag)
+      gridTop: placeholderPosition.top,
+      gridHeight: placeholderPosition.height,
+      // Position in overlay (for rendering outside ScrollView during edit)
+      overlayTop: clippedTop,
+      overlayHeight: Math.max(0, clippedHeight),
+      // Visibility state
+      isFullyAbove,
+      isFullyBelow,
+      isPartiallyVisible,
+      isCompletelyOffScreen: isFullyAbove || isFullyBelow,
+      // Clipping info for resize handle visibility
+      topClipAmount,
+      bottomClipAmount,
+      // Direction to scroll to find placeholder
+      scrollDirection: isFullyAbove ? 'up' : isFullyBelow ? 'down' : null,
+      // Original position for scroll-to functionality
+      originalTop: placeholderTopInGrid,
+    };
+  }, [placeholderPosition, scrollOffset, scrollViewHeight, isPlaceholderEditing]);
+
+  // Scroll to placeholder location
+  const scrollToPlaceholder = useCallback(() => {
+    if (!fixedPlaceholderPosition || !scrollViewRef.current) return;
+    const targetScrollY = fixedPlaceholderPosition.originalTop - 50; // 50px padding from top
+    scrollViewRef.current.scrollTo({
+      y: Math.max(0, targetScrollY),
+      animated: true,
+    });
+  }, [fixedPlaceholderPosition]);
+
   // Disable scroll when dragging/resizing/creating
-  const isInteracting = draggingEvent !== null || resizingEvent !== null || isCreating || isPlaceholderEditing;
+  // Note: isPlaceholderEditing is NOT included - allow scrolling during placeholder editing
+  // so user can scroll to find the right time for the event
+  const isInteracting = draggingEvent !== null || resizingEvent !== null || isCreating;
 
   // Calculate conflict zones during drag/resize
   const conflictZones = useMemo(() => {
@@ -528,12 +766,15 @@ export default function DayView({
       </View>
 
       {/* Time grid with gesture detection */}
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={!isInteracting}
-      >
+      <View style={styles.scrollViewContainer} onLayout={handleScrollViewLayout}>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={!isInteracting}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+        >
         <GestureDetector gesture={composedGesture}>
           <Animated.View style={styles.timeGrid} onLayout={handleGridLayout}>
             {/* Hour rows */}
@@ -581,10 +822,10 @@ export default function DayView({
               </View>
             ))}
 
-            {/* Placeholder for drag-to-create */}
-            {dragState && placeholderPosition && (
+            {/* Placeholder for drag-to-create - rendered in scroll during initial drag only */}
+            {dragState && placeholderPosition && isCreating && !isPlaceholderEditing && (
               <PlaceholderContainer
-                visible={isCreating || isPlaceholderEditing}
+                visible={true}
                 startTime={(() => {
                   const d = new Date(dragState.startDate);
                   d.setHours(dragState.startHour, dragState.startMinutes, 0, 0);
@@ -600,19 +841,7 @@ export default function DayView({
                 viewType="day"
                 top={placeholderPosition.top}
                 height={placeholderPosition.height}
-                isEditing={isPlaceholderEditing}
-                onResizeStart={handlePlaceholderResizeStart}
-                onResizeMove={handlePlaceholderResizeMove}
-                onResizeEnd={handlePlaceholderResizeEnd}
-                onConfirm={handlePlaceholderConfirm}
-              />
-            )}
-
-            {/* Tap outside overlay to dismiss placeholder */}
-            {isPlaceholderEditing && (
-              <Pressable
-                style={styles.tapOutsideOverlay}
-                onPress={handleTapOutside}
+                isEditing={false}
               />
             )}
 
@@ -663,6 +892,90 @@ export default function DayView({
           </Animated.View>
         </GestureDetector>
       </ScrollView>
+
+        {/* Fixed overlay for placeholder during editing mode - stays visible during scroll */}
+        {isPlaceholderEditing && dragState && fixedPlaceholderPosition && (
+          <>
+            {/* Tap outside overlay to dismiss placeholder */}
+            <Pressable
+              style={styles.fixedTapOutsideOverlay}
+              onPress={handleTapOutside}
+            />
+
+            {/* Off-screen indicator when placeholder is completely scrolled away */}
+            {fixedPlaceholderPosition.isCompletelyOffScreen && (
+              <TouchableOpacity
+                style={[
+                  styles.offScreenIndicator,
+                  fixedPlaceholderPosition.isFullyAbove
+                    ? styles.offScreenIndicatorTop
+                    : styles.offScreenIndicatorBottom,
+                ]}
+                onPress={scrollToPlaceholder}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={fixedPlaceholderPosition.isFullyAbove ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color="white"
+                />
+                <Text style={styles.offScreenIndicatorText}>
+                  {(() => {
+                    const d = new Date(dragState.startDate);
+                    d.setHours(dragState.startHour, dragState.startMinutes, 0, 0);
+                    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                  })()}
+                </Text>
+                <Ionicons name="calendar-outline" size={14} color="white" />
+              </TouchableOpacity>
+            )}
+
+            {/* Fixed placeholder - visible and interactive regardless of scroll */}
+            {!fixedPlaceholderPosition.isCompletelyOffScreen && (
+              <View
+                style={[
+                  styles.fixedPlaceholderWrapper,
+                  {
+                    top: fixedPlaceholderPosition.overlayTop,
+                    height: fixedPlaceholderPosition.overlayHeight,
+                  },
+                ]}
+                pointerEvents="box-none"
+              >
+                <PlaceholderContainer
+                  visible={true}
+                  startTime={(() => {
+                    const d = new Date(dragState.startDate);
+                    d.setHours(dragState.startHour, dragState.startMinutes, 0, 0);
+                    return d;
+                  })()}
+                  endTime={(() => {
+                    const d = new Date(dragState.endDate);
+                    d.setHours(dragState.endHour, dragState.endMinutes, 0, 0);
+                    return d;
+                  })()}
+                  onComplete={() => {}}
+                  onCancel={cancelDrag}
+                  viewType="day"
+                  top={0}
+                  height={fixedPlaceholderPosition.overlayHeight}
+                  isEditing={true}
+                  onResizeStart={handlePlaceholderResizeStart}
+                  onResizeMove={handlePlaceholderResizeMove}
+                  onResizeEnd={handlePlaceholderResizeEnd}
+                  onConfirm={handlePlaceholderConfirm}
+                  onDragMoveStart={handlePlaceholderDragMoveStart}
+                  onDragMove={handlePlaceholderDragMove}
+                  onDragMoveEnd={handlePlaceholderDragMoveEnd}
+                  scrollOffset={scrollOffset}
+                  topClipAmount={fixedPlaceholderPosition.topClipAmount}
+                  bottomClipAmount={fixedPlaceholderPosition.bottomClipAmount}
+                />
+              </View>
+            )}
+          </>
+        )}
+      </View>
     </View>
   );
 }
@@ -712,6 +1025,8 @@ const createStyles = (tokens: ThemeTokens) =>
     timeGrid: {
       position: 'relative',
       paddingBottom: 60,
+      paddingTop: 20, // Space for top resize handle when placeholder is near top
+      overflow: 'visible', // Allow resize handles to extend outside bounds
     },
     hourRow: {
       flexDirection: 'row',
@@ -790,5 +1105,49 @@ const createStyles = (tokens: ThemeTokens) =>
     tapOutsideOverlay: {
       ...StyleSheet.absoluteFillObject,
       zIndex: 40,
+    },
+    scrollViewContainer: {
+      flex: 1,
+      position: 'relative',
+    },
+    fixedTapOutsideOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 40,
+    },
+    fixedPlaceholderWrapper: {
+      position: 'absolute',
+      left: 56,
+      right: 8,
+      zIndex: 51,
+      overflow: 'visible',
+    },
+    offScreenIndicator: {
+      position: 'absolute',
+      left: 56,
+      right: 8,
+      height: 32,
+      backgroundColor: tokens.accent,
+      borderRadius: 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      zIndex: 52,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    offScreenIndicatorTop: {
+      top: 0,
+    },
+    offScreenIndicatorBottom: {
+      bottom: 0,
+    },
+    offScreenIndicatorText: {
+      color: 'white',
+      fontSize: 12,
+      fontWeight: '600',
     },
   });

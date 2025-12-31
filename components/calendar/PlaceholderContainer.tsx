@@ -2,14 +2,17 @@
  * PlaceholderContainer - Visual placeholder during drag-to-create events
  * Shows time range, duration, and animates appearance/updates
  * Supports editing mode with resize handles and action buttons
+ * Supports drag-to-move functionality for repositioning events
  */
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ViewStyle, TouchableOpacity } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
+  runOnJS,
+  interpolate,
 } from 'react-native-reanimated';
 import { GestureDetector, Gesture, GestureType } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,11 +21,17 @@ import {
   formatTime,
   formatDuration,
   PIXELS_PER_HOUR,
+  triggerLongPressHaptic,
+  triggerSnapHaptic,
 } from './gestures/gestureUtils';
 
 // Height thresholds for adaptive display
 const COMPACT_HEIGHT_THRESHOLD = 35;
 const MEDIUM_HEIGHT_THRESHOLD = 50;
+
+// Drag-to-move constants
+const DRAG_LONG_PRESS_DURATION_MS = 400;
+const SNAP_MINUTES = 15;
 
 export type PlaceholderViewType = 'day' | 'week' | 'month';
 export type ResizeHandleType = 'top' | 'bottom' | 'left' | 'right';
@@ -50,6 +59,14 @@ export interface PlaceholderContainerProps {
   onResizeMove?: (handle: ResizeHandleType, delta: { x: number; y: number }) => void;
   onResizeEnd?: (handle: ResizeHandleType) => void;
   onConfirm?: () => void;
+  // Drag-to-move props
+  onDragMoveStart?: () => void;
+  onDragMove?: (delta: { x: number; y: number }) => void;
+  onDragMoveEnd?: () => void;
+  // Fixed overlay positioning (for scroll-aware rendering)
+  scrollOffset?: number;
+  topClipAmount?: number;
+  bottomClipAmount?: number;
 }
 
 export default function PlaceholderContainer({
@@ -71,6 +88,12 @@ export default function PlaceholderContainer({
   onResizeMove,
   onResizeEnd,
   onConfirm,
+  onDragMoveStart,
+  onDragMove,
+  onDragMoveEnd,
+  scrollOffset = 0,
+  topClipAmount = 0,
+  bottomClipAmount = 0,
 }: PlaceholderContainerProps) {
   const { tokens } = useTheme();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
@@ -78,6 +101,11 @@ export default function PlaceholderContainer({
   // Animation values
   const scale = useSharedValue(0.95);
   const opacity = useSharedValue(0);
+
+  // Drag-to-move state
+  const isDraggingBody = useSharedValue(false);
+  const dragScale = useSharedValue(1);
+  const lastSnappedMinutesRef = useRef(0);
 
   // Calculate duration in minutes
   const durationMinutes = useMemo(() => {
@@ -117,8 +145,14 @@ export default function PlaceholderContainer({
 
   // Animated styles - using ONLY animated opacity (no layout animations to avoid conflict)
   const animatedContainerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [{ scale: scale.value * dragScale.value }],
     opacity: opacity.value,
+  }));
+
+  // Animated style for dragging body visual feedback
+  const animatedDragStyle = useAnimatedStyle(() => ({
+    shadowOpacity: interpolate(dragScale.value, [1, 1.02], [0.3, 0.5]),
+    elevation: interpolate(dragScale.value, [1, 1.02], [4, 8]),
   }));
 
   // Dynamic container style based on props
@@ -133,14 +167,33 @@ export default function PlaceholderContainer({
   const createResizeGesture = (handle: ResizeHandleType): GestureType => {
     return Gesture.Pan()
       .enabled(isEditing)
+      .minDistance(0)
+      .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }) // Larger touch target
+      .shouldCancelWhenOutside(false) // Keep tracking even if finger moves outside
+      .onBegin(() => {
+        'worklet';
+        console.log('[PlaceholderContainer] Gesture onBegin:', handle);
+      })
       .onStart(() => {
-        onResizeStart?.(handle);
+        'worklet';
+        console.log('[PlaceholderContainer] Gesture onStart:', handle);
+        if (onResizeStart) {
+          runOnJS(onResizeStart)(handle);
+        }
       })
       .onUpdate((event) => {
-        onResizeMove?.(handle, { x: event.translationX, y: event.translationY });
+        'worklet';
+        // onUpdate fires continuously during active gesture
+        if (onResizeMove) {
+          runOnJS(onResizeMove)(handle, { x: event.translationX, y: event.translationY });
+        }
       })
       .onEnd(() => {
-        onResizeEnd?.(handle);
+        'worklet';
+        console.log('[PlaceholderContainer] Gesture onEnd:', handle);
+        if (onResizeEnd) {
+          runOnJS(onResizeEnd)(handle);
+        }
       });
   };
 
@@ -150,6 +203,68 @@ export default function PlaceholderContainer({
   const leftResizeGesture = useMemo(() => createResizeGesture('left'), [isEditing, onResizeStart, onResizeMove, onResizeEnd]);
   const rightResizeGesture = useMemo(() => createResizeGesture('right'), [isEditing, onResizeStart, onResizeMove, onResizeEnd]);
 
+  // Helper functions for haptic feedback during body drag
+  const handleDragMoveStartJS = () => {
+    triggerLongPressHaptic();
+    lastSnappedMinutesRef.current = 0;
+    onDragMoveStart?.();
+  };
+
+  const handleDragMoveUpdateJS = (translationY: number) => {
+    // Calculate minute offset from translation
+    const rawMinutesDelta = (translationY / PIXELS_PER_HOUR) * 60;
+    const snappedMinutes = Math.round(rawMinutesDelta / SNAP_MINUTES) * SNAP_MINUTES;
+
+    // Trigger haptic on snap point change
+    if (snappedMinutes !== lastSnappedMinutesRef.current) {
+      triggerSnapHaptic();
+      lastSnappedMinutesRef.current = snappedMinutes;
+    }
+
+    onDragMove?.({ x: 0, y: translationY });
+  };
+
+  const handleDragMoveEndJS = () => {
+    onDragMoveEnd?.();
+  };
+
+  // Create body drag gesture (long-press + pan)
+  // This allows dragging the entire placeholder to reposition it
+  const bodyDragGesture = useMemo(() => {
+    return Gesture.Pan()
+      .enabled(isEditing && !!onDragMove)
+      .activateAfterLongPress(DRAG_LONG_PRESS_DURATION_MS)
+      .minDistance(0)
+      .shouldCancelWhenOutside(false)
+      .onBegin(() => {
+        'worklet';
+        console.log('[PlaceholderContainer] Body drag onBegin');
+      })
+      .onStart(() => {
+        'worklet';
+        console.log('[PlaceholderContainer] Body drag onStart');
+        isDraggingBody.value = true;
+        dragScale.value = withSpring(1.02, { damping: 15, stiffness: 400 });
+        runOnJS(handleDragMoveStartJS)();
+      })
+      .onUpdate((event) => {
+        'worklet';
+        runOnJS(handleDragMoveUpdateJS)(event.translationY);
+      })
+      .onEnd(() => {
+        'worklet';
+        console.log('[PlaceholderContainer] Body drag onEnd');
+        isDraggingBody.value = false;
+        dragScale.value = withSpring(1, { damping: 15, stiffness: 400 });
+        runOnJS(handleDragMoveEndJS)();
+      })
+      .onFinalize(() => {
+        'worklet';
+        isDraggingBody.value = false;
+        dragScale.value = withSpring(1, { damping: 15, stiffness: 400 });
+      });
+  }, [isEditing, onDragMove, onDragMoveStart, onDragMoveEnd, isDraggingBody, dragScale]);
+
   if (!visible) {
     return null;
   }
@@ -157,6 +272,12 @@ export default function PlaceholderContainer({
   // Show action buttons only in editing mode with enough space
   const showActionButtons = isEditing && calculatedHeight > 40;
   const showResizeHandles = isEditing;
+
+  // Hide resize handles when they would be clipped off-screen
+  // Top handle is hidden if top is clipped
+  const showTopHandle = showResizeHandles && topClipAmount === 0;
+  // Bottom handle is hidden if bottom is clipped
+  const showBottomHandle = showResizeHandles && bottomClipAmount === 0;
 
   return (
     <Animated.View
@@ -169,10 +290,10 @@ export default function PlaceholderContainer({
       // Remove pointerEvents="none" when editing to allow interaction
       pointerEvents={isEditing ? 'auto' : 'none'}
     >
-      {/* Top resize handle */}
-      {showResizeHandles && (
+      {/* Top resize handle - hidden when clipped at top */}
+      {showTopHandle && (
         <GestureDetector gesture={topResizeGesture}>
-          <View style={styles.resizeHandleTop}>
+          <View style={styles.resizeHandleTop} pointerEvents="box-only">
             <View style={[styles.handleBar, { backgroundColor: tokens.accent }]} />
           </View>
         </GestureDetector>
@@ -187,76 +308,79 @@ export default function PlaceholderContainer({
         </GestureDetector>
       )}
 
-      <View style={styles.innerContainer}>
-        {/* Time display - always visible */}
-        <View style={styles.timeContainer}>
-          <Text style={styles.timeText} numberOfLines={1}>
-            {displayMode === 'ultra-compact'
-              ? `${startTimeStr}`
-              : `${startTimeStr} - ${endTimeStr}`}
-          </Text>
-        </View>
-
-        {/* Title - only in full mode */}
-        {displayMode === 'full' && title && (
-          <Text style={styles.titleText} numberOfLines={1}>
-            {title}
-          </Text>
-        )}
-
-        {/* Duration - in compact and full modes */}
-        {displayMode !== 'ultra-compact' && (
-          <View style={styles.durationContainer}>
-            <Text style={styles.durationText}>{durationStr}</Text>
-          </View>
-        )}
-
-        {/* Multi-day indicator */}
-        {isMultiDay && (
-          <View style={styles.multiDayBadge}>
-            <Text style={styles.multiDayText}>
-              {daySpan} {daySpan === 1 ? 'day' : 'days'}
+      {/* Body drag gesture wrapper - wraps inner content for drag-to-move */}
+      <GestureDetector gesture={bodyDragGesture}>
+        <Animated.View style={[styles.innerContainer, animatedDragStyle]}>
+          {/* Time display - always visible */}
+          <View style={styles.timeContainer}>
+            <Text style={styles.timeText} numberOfLines={1}>
+              {displayMode === 'ultra-compact'
+                ? `${startTimeStr}`
+                : `${startTimeStr} - ${endTimeStr}`}
             </Text>
           </View>
-        )}
 
-        {/* New Event label for full mode without title */}
-        {displayMode === 'full' && !title && !isEditing && (
-          <Text style={styles.newEventText}>New Event</Text>
-        )}
+          {/* Title - only in full mode */}
+          {displayMode === 'full' && title && (
+            <Text style={styles.titleText} numberOfLines={1}>
+              {title}
+            </Text>
+          )}
 
-        {/* Action buttons in editing mode */}
-        {showActionButtons && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              onPress={onConfirm}
-              style={[styles.actionButton, styles.confirmButton]}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="checkmark" size={18} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={onCancel}
-              style={[styles.actionButton, styles.cancelButton]}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close" size={18} color="white" />
-            </TouchableOpacity>
-          </View>
-        )}
+          {/* Duration - in compact and full modes */}
+          {displayMode !== 'ultra-compact' && (
+            <View style={styles.durationContainer}>
+              <Text style={styles.durationText}>{durationStr}</Text>
+            </View>
+          )}
 
-        {/* Inline action buttons for compact mode */}
-        {isEditing && !showActionButtons && (
-          <View style={styles.inlineActions}>
-            <TouchableOpacity onPress={onConfirm} activeOpacity={0.7}>
-              <Ionicons name="checkmark-circle" size={20} color={tokens.accent} />
-            </TouchableOpacity>
+          {/* Multi-day indicator */}
+          {isMultiDay && (
+            <View style={styles.multiDayBadge}>
+              <Text style={styles.multiDayText}>
+                {daySpan} {daySpan === 1 ? 'day' : 'days'}
+              </Text>
+            </View>
+          )}
+
+          {/* New Event label for full mode without title */}
+          {displayMode === 'full' && !title && !isEditing && (
+            <Text style={styles.newEventText}>New Event</Text>
+          )}
+
+          {/* Action buttons in editing mode - placed outside drag zone */}
+          {showActionButtons && (
+            <View style={styles.actionButtons} pointerEvents="box-none">
+              <TouchableOpacity
+                onPress={onConfirm}
+                style={[styles.actionButton, styles.confirmButton]}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="checkmark" size={18} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onCancel}
+                style={[styles.actionButton, styles.cancelButton]}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={18} color="white" />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Inline action buttons for compact mode */}
+          {isEditing && !showActionButtons && (
+            <View style={styles.inlineActions} pointerEvents="box-none">
+              <TouchableOpacity onPress={onConfirm} activeOpacity={0.7}>
+                <Ionicons name="checkmark-circle" size={20} color={tokens.accent} />
+              </TouchableOpacity>
             <TouchableOpacity onPress={onCancel} activeOpacity={0.7}>
               <Ionicons name="close-circle" size={20} color={tokens.textSecondary} />
             </TouchableOpacity>
           </View>
         )}
-      </View>
+        </Animated.View>
+      </GestureDetector>
 
       {/* Right resize handle (week view only for multi-day) */}
       {showResizeHandles && viewType === 'week' && (
@@ -267,10 +391,10 @@ export default function PlaceholderContainer({
         </GestureDetector>
       )}
 
-      {/* Bottom resize handle */}
-      {showResizeHandles && (
+      {/* Bottom resize handle - hidden when clipped at bottom */}
+      {showBottomHandle && (
         <GestureDetector gesture={bottomResizeGesture}>
-          <View style={styles.resizeHandleBottom}>
+          <View style={styles.resizeHandleBottom} pointerEvents="box-only">
             <View style={[styles.handleBar, { backgroundColor: tokens.accent }]} />
           </View>
         </GestureDetector>
@@ -354,26 +478,26 @@ const createStyles = (tokens: ThemeTokens) =>
       opacity: 0.7,
       marginTop: 2,
     },
-    // Resize handles
+    // Resize handles - larger touch targets for better usability
     resizeHandleTop: {
       position: 'absolute',
-      top: -8,
+      top: -12,
       left: 0,
       right: 0,
-      height: 16,
+      height: 24,
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 60,
+      zIndex: 100, // Higher z-index to ensure it's on top
     },
     resizeHandleBottom: {
       position: 'absolute',
-      bottom: -8,
+      bottom: -12,
       left: 0,
       right: 0,
-      height: 16,
+      height: 24,
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 60,
+      zIndex: 100,
     },
     resizeHandleLeft: {
       position: 'absolute',
