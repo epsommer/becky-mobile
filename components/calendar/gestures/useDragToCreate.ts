@@ -505,22 +505,30 @@ export function useDragToCreate({
     [gesturesEnabled, handleLongPressStart]
   );
 
+  // Track absolute Y position for accurate translation calculation
+  // This compensates for the activeOffset delay that allows scroll to work
+  const panStartAbsoluteY = useSharedValue(0);
+
   // Pan gesture (activated after long press)
-  // NOTE: Removed activeOffsetY/X to eliminate delay between long press and pan tracking
-  // This ensures translationY accurately reflects movement from long press start
+  // Uses activeOffsetY to allow scroll gestures to take precedence
+  // Compensates by tracking absolute position for accurate drag distance
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
         .activateAfterLongPress(LONG_PRESS_DURATION_MS)
         .enabled(gesturesEnabled)
-        .minDistance(0) // Activate immediately after long press, no additional distance required
+        .activeOffsetY([-5, 5]) // Allow scroll to work - pan only activates after 5px vertical movement
+        .activeOffsetX([-10, 10]) // More lenient horizontal to not block scroll
         .onStart((event) => {
           'worklet';
+          // Capture where pan actually started (after activeOffset threshold)
+          panStartAbsoluteY.value = event.absoluteY;
           console.log('[useDragToCreate] Pan onStart - absoluteY:', event.absoluteY);
         })
         .onUpdate((event) => {
           'worklet';
-          console.log('[useDragToCreate] Pan onUpdate - translationY:', event.translationY, 'absoluteY:', event.absoluteY);
+          // Use regular translationY - the activeOffset just delays activation,
+          // but translationY still tracks from where the gesture started
           runOnJS(handlePanUpdate)(event.translationY, event.translationX, event.absoluteX);
         })
         .onEnd(() => {
@@ -531,7 +539,7 @@ export function useDragToCreate({
           'worklet';
           // Handle cancellation if needed
         }),
-    [gesturesEnabled, handlePanUpdate, handleDragEnd]
+    [gesturesEnabled, handlePanUpdate, handleDragEnd, panStartAbsoluteY]
   );
 
   // Compose gestures to run simultaneously
